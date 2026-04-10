@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f1117">
+<title>TacFiscal</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1117;--surface:#181c27;--surface2:#1e2335;--border:#2a3050;--accent:#4f8ef7;--accent2:#7c5cbf;--green:#22c55e;--yellow:#f59e0b;--orange:#f97316;--red:#ef4444;--blue:#3b82f6;--text:#e8ecf4;--text2:#8892aa;--text3:#4a5570;--card:#1a1f2e;--radius:14px;--radius-sm:8px;--safe-bottom:env(safe-area-inset-bottom,0px)}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);font-family:'DM Sans',sans-serif;color:var(--text);overflow:hidden}
+#app{display:flex;flex-direction:column;height:100%;max-width:480px;margin:0 auto;position:relative}
+#screens{flex:1;overflow:hidden;position:relative}
+.screen{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;display:none;padding-bottom:20px}
+.screen.active{display:block}
+.screen::-webkit-scrollbar{display:none}
+#bottom-nav{display:flex;background:var(--surface);border-top:1px solid var(--border);padding:8px 0 calc(8px + var(--safe-bottom));flex-shrink:0}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 0}
+.nav-icon{font-size:20px;line-height:1;transition:transform .15s}
+.nav-label{font-size:9px;font-weight:600;color:var(--text3);letter-spacing:.3px;transition:color .15s}
+.nav-item.active .nav-label{color:var(--accent)}
+.nav-item.active .nav-icon{transform:translateY(-1px)}
+.page-header{padding:20px 20px 12px;display:flex;justify-content:space-between;align-items:flex-start}
+.page-title{font-size:24px;font-weight:700;letter-spacing:-.5px}
+.page-sub{font-size:12px;color:var(--text2);margin-top:2px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius)}
+.card-p{padding:14px 16px}
+.divider{height:1px;background:var(--border);margin:8px 20px 14px}
+.section-h{display:flex;justify-content:space-between;align-items:center;padding:0 20px 10px}
+.section-title{font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.5px;text-transform:uppercase}
+.section-link{font-size:12px;color:var(--accent);font-weight:500;cursor:pointer}
+.search-wrap{padding:0 20px 12px}
+.search-bar{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);display:flex;align-items:center;gap:8px;padding:10px 14px}
+.search-bar input{background:none;border:none;outline:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;flex:1}
+.search-bar input::placeholder{color:var(--text3)}
+.chips{display:flex;gap:8px;padding:0 20px 14px;overflow-x:auto;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--text2);transition:all .15s}
+.chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.client-list{padding:0 20px;display:flex;flex-direction:column;gap:8px}
+.client-row{display:flex;align-items:center;gap:12px;cursor:pointer}
+.client-avatar{width:42px;height:42px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
+.client-info{flex:1;min-width:0}
+.client-name{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.client-meta{font-size:11px;color:var(--text2);margin-top:2px}
+.semaforo{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.s-verde{background:var(--green);box-shadow:0 0 6px var(--green)}
+.s-amarillo{background:var(--yellow);box-shadow:0 0 6px var(--yellow)}
+.s-naranja{background:var(--orange);box-shadow:0 0 6px var(--orange)}
+.s-rojo{background:var(--red);box-shadow:0 0 6px var(--red)}
+.s-azul{background:var(--blue);box-shadow:0 0 6px var(--blue)}
+.stats-row{display:flex;gap:10px;padding:0 20px 16px}
+.stat-card{flex:1;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 12px;cursor:pointer}
+.stat-dot{width:6px;height:6px;border-radius:50%;margin-bottom:8px}
+.stat-num{font-size:26px;font-weight:700;letter-spacing:-1px;line-height:1}
+.stat-label{font-size:10px;color:var(--text2);margin-top:4px;font-weight:500}
+.tags-row{display:flex;gap:6px;flex-wrap:wrap;padding:0 20px 14px}
+.tag{font-size:10px;font-weight:600;padding:4px 10px;border-radius:6px;background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.tag.on{background:rgba(34,197,94,.12);color:var(--green);border-color:rgba(34,197,94,.3)}
+.tag.off{background:rgba(239,68,68,.1);color:var(--red);border-color:rgba(239,68,68,.2)}
+.modelo-item{display:flex;align-items:center;gap:12px;padding:12px 14px}
+.modelo-item+.modelo-item{border-top:1px solid var(--border)}
+.modelo-num{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--accent);width:36px;flex-shrink:0}
+.modelo-desc{flex:1}
+.modelo-name{font-size:12px;font-weight:600}
+.modelo-period{font-size:10px;color:var(--text2);margin-top:2px}
+.modelo-badge{font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap}
+.mb-auto{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.mb-pend{background:rgba(245,158,11,.12);color:var(--yellow);border:1px solid rgba(245,158,11,.25)}
+.mb-excl{background:rgba(74,85,112,.3);color:var(--text3);border:1px solid var(--border)}
+.mb-sug{background:rgba(79,142,247,.12);color:var(--accent);border:1px solid rgba(79,142,247,.25)}
+.mb-exento{background:rgba(59,130,246,.12);color:var(--blue);border:1px solid rgba(59,130,246,.25)}
+.mb-pagado{background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.25)}
+.mb-compensar{background:rgba(124,92,191,.12);color:var(--accent2);border:1px solid rgba(124,92,191,.25)}
+.mb-devolver{background:rgba(79,142,247,.12);color:var(--accent);border:1px solid rgba(79,142,247,.25)}
+.ficha-hero{background:linear-gradient(180deg,#1a2540,var(--bg));padding:16px 20px 20px}
+.back-btn{font-size:22px;cursor:pointer;color:var(--text2);margin-bottom:12px;display:inline-block;background:none;border:none}
+.hero-row{display:flex;align-items:center;gap:14px}
+.hero-avatar{width:54px;height:54px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0}
+.hero-name{font-size:19px;font-weight:700;letter-spacing:-.3px}
+.hero-nif{font-size:12px;color:var(--text2);font-family:'DM Mono',monospace;margin-top:2px}
+.hero-badge{display:inline-block;margin-top:6px;font-size:10px;font-weight:600;padding:3px 10px;border-radius:20px;background:rgba(79,142,247,.15);color:var(--accent)}
+.action-row{display:flex;gap:8px;padding:0 20px 12px}
+.action-row .btn{flex:1;font-size:11px;padding:10px 6px}
+.form-group{margin-bottom:14px}
+.form-label{font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.4px;text-transform:uppercase;margin-bottom:6px;display:block}
+.form-input,.form-select,.form-textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:11px 14px;outline:none;transition:border-color .15s;appearance:none}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent)}
+.form-input.prefilled{border-color:var(--green);background:rgba(34,197,94,.05)}
+.form-select.prefilled{border-color:var(--green);background:rgba(34,197,94,.05)}
+.form-select option{background:var(--surface2)}
+.form-textarea{resize:none;height:72px}
+.form-row{display:flex;gap:10px}
+.form-row .form-group{flex:1}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
+.toggle-row:last-child{border-bottom:none}
+.toggle-label{font-size:14px;font-weight:500}
+.toggle-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.toggle{width:42px;height:24px;background:var(--border);border-radius:12px;position:relative;cursor:pointer;transition:background .25s;flex-shrink:0}
+.toggle.on{background:var(--accent)}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:9px;background:#fff;transition:transform .25s}
+.toggle.on::after{transform:translateX(18px)}
+.btn{padding:13px;border-radius:var(--radius);font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;border:none;transition:all .15s;font-family:'DM Sans',sans-serif;width:100%}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-danger{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.btn-green{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.fab{position:fixed;right:20px;bottom:calc(70px + var(--safe-bottom));width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--accent));display:flex;align-items:center;justify-content:center;font-size:26px;cursor:pointer;box-shadow:0 4px 20px rgba(79,142,247,.4);transition:transform .15s;z-index:50;border:none;color:#fff}
+.fab:active{transform:scale(.92)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .25s;z-index:200}
+.modal-overlay.show{opacity:1;pointer-events:all}
+.modal-sheet{width:100%;max-width:480px;margin:0 auto;background:var(--surface);border-radius:var(--radius) var(--radius) 0 0;border-top:1px solid var(--border);padding:20px 20px calc(24px + var(--safe-bottom));transform:translateY(30px);transition:transform .25s;max-height:92vh;overflow-y:auto}
+.modal-overlay.show .modal-sheet{transform:translateY(0)}
+.modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 18px}
+.modal-title{font-size:18px;font-weight:700;margin-bottom:4px}
+.modal-sub{font-size:12px;color:var(--text2);margin-bottom:16px}
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:32px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--card);margin-bottom:14px}
+.upload-zone:active{border-color:var(--accent);background:rgba(79,142,247,.06)}
+.upload-icon{font-size:44px;margin-bottom:12px}
+.upload-title{font-size:15px;font-weight:600;margin-bottom:6px}
+.upload-sub{font-size:12px;color:var(--text2)}
+#file-input{display:none}
+.ocr-step{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.ocr-step:last-child{border-bottom:none}
+.step-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;transition:all .3s}
+.step-icon.done{background:rgba(34,197,94,.15);color:var(--green)}
+.step-icon.active{background:rgba(79,142,247,.15);color:var(--accent)}
+.step-icon.pending{background:var(--surface2);color:var(--text3)}
+.ef-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.ef-row:last-child{border-bottom:none}
+.ef-label{font-size:10px;color:var(--text2);font-weight:600;letter-spacing:.3px;text-transform:uppercase;width:84px;flex-shrink:0;padding-top:2px}
+.ef-value{font-size:13px;font-weight:500;flex:1;line-height:1.4}
+.ef-ok{font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(34,197,94,.12);color:var(--green);flex-shrink:0;margin-top:2px}
+.ef-warn{font-size:9px;font-weight:700;padding:2px 7px;border-radius:10px;background:rgba(245,158,11,.12);color:var(--yellow);flex-shrink:0;margin-top:2px}
+.loading{text-align:center;padding:40px 20px;color:var(--text2);font-size:14px}
+.empty-state{text-align:center;padding:50px 20px}
+.empty-icon{font-size:48px;margin-bottom:12px}
+.empty-title{font-size:16px;font-weight:600;margin-bottom:6px}
+.empty-sub{font-size:13px;color:var(--text2)}
+#toast{position:fixed;bottom:calc(80px + var(--safe-bottom));left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 20px;font-size:13px;font-weight:500;opacity:0;transition:all .3s;z-index:300;white-space:nowrap;pointer-events:none}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.success{border-color:var(--green);color:var(--green)}
+#toast.error{border-color:var(--red);color:var(--red)}
+#toast.info{border-color:var(--accent);color:var(--accent)}
+.semaforo-legend{display:flex;gap:12px;padding:0 20px 14px;flex-wrap:wrap}
+.sl-item{display:flex;align-items:center;gap:5px}
+.sl-dot{width:8px;height:8px;border-radius:50%}
+.sl-label{font-size:10px;color:var(--text2);font-weight:500}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{animation:spin 1s linear infinite;display:inline-block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.fade-up{animation:fadeUp .3s ease both}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="screens">
+    <div class="screen active" id="s-dashboard"></div>
+    <div class="screen" id="s-clientes"></div>
+    <div class="screen" id="s-ficha"></div>
+    <div class="screen" id="s-config"></div>
+  </div>
+  <nav id="bottom-nav">
+    <div class="nav-item active" data-screen="dashboard"><span class="nav-icon">🏠</span><span class="nav-label">Inicio</span></div>
+    <div class="nav-item" data-screen="clientes"><span class="nav-icon">👥</span><span class="nav-label">Clientes</span></div>
+    <div class="nav-item" data-screen="config"><span class="nav-icon">⚙️</span><span class="nav-label">Config</span></div>
+  </nav>
+</div>
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-sheet"><div class="modal-handle"></div><div id="modal-body"></div></div>
+</div>
+<input type="file" id="file-input" accept=".pdf,image/*">
+<div id="toast"></div>
+
+<script>
+const SUPABASE_URL='https://pujxousfyvnuhwimqyor.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1anhvdXNmeXZudWh3aW1xeW9yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjkwOTcsImV4cCI6MjA5MTE0NTA5N30.Iw8bDJGE58FdLdFsr7vVQEb1uF5QjwRDt9lc_9zv4Nk';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const CLAUDE_API='https://api.anthropic.com/v1/messages';
+const getKey=()=>localStorage.getItem('tac_api_key')||'';
+const setKey=k=>localStorage.setItem('tac_api_key',k);
+
+// ── MOTOR DE REGLAS ────────────────────────
+function sugerirModelos(c){
+  const s=new Set();
+  const{tipo_cliente:t,regimen_fiscal:r,situacion_iva:iva,tiene_trabajadores:tr,tiene_alquileres:al}=c;
+  if(iva!=='exento'&&iva!=='no_sujeto')s.add('303');
+  if(t==='autonomo'){if(r==='estimacion_directa')s.add('130');if(r==='modulos')s.add('131');}
+  if(t==='sociedad')s.add('200');
+  if(tr){s.add('111');s.add('190');}
+  if(al){s.add('115');s.add('180');}
+  if(iva!=='exento'&&iva!=='no_sujeto')s.add('390');
+  return[...s];
+}
+function calcularSemaforo(obs,pres){
+  const act=obs.filter(o=>o.activo&&o.origen!=='excluido_manual');
+  if(!act.length)return'azul';
+  // Solo modelos trimestrales/mensuales afectan al semáforo del periodo actual
+  const ANUALES=['390','190','180','347','200'];
+  const actPeriodo=act.filter(o=>!ANUALES.includes(o.modelos_fiscales?.codigo||''));
+  const actTodos=act;
+  // Si todos presentados (incluyendo anuales si los hay) -> verde
+  if(actPeriodo.length===0&&actTodos.every(o=>pres.find(p=>p.modelo_id===o.modelo_id)?.estado==='presentado'))return'verde';
+  if(actPeriodo.length>0&&actPeriodo.every(o=>{const p=pres.find(p=>p.modelo_id===o.modelo_id);return p&&(p.estado==='presentado'||p.estado==='exento');}))return'verde';
+  // Fechas correctas 1T 2026: domiciliacion 15 abril, general 20 abril
+  const hoy=new Date();
+  const fechaUrgente=new Date('2026-04-20');
+  const dias=Math.ceil((fechaUrgente-hoy)/86400000);
+  if(actPeriodo.some(o=>{const p=pres.find(p=>p.modelo_id===o.modelo_id);return(!p||p.estado==='pendiente')&&dias<=7;}))return'rojo';
+  if(actPeriodo.some(o=>{const p=pres.find(p=>p.modelo_id===o.modelo_id);return!p||p.estado==='pendiente';}))return'naranja';
+  return'amarillo';
+}
+function diasHasta(f){return Math.ceil((new Date(f)-new Date())/86400000);}
+
+// ── STATE ──────────────────────────────────
+const S={screen:'dashboard',clientes:[],clienteActual:null,campana:null,modelos:[],filtro:'todos',q:'',loading:false};
+const LT={autonomo:'Autónomo',sociedad:'Sociedad',asociacion:'Asociación'};
+const LR={estimacion_directa:'Est. directa',modulos:'Módulos',general:'General',simplificado:'Simplificado'};
+const LI={normal:'IVA normal',exento:'IVA exento',no_sujeto:'No sujeto',mixto:'IVA mixto'};
+let ocrData=null;
+
+// ── NAV ────────────────────────────────────
+function goTo(scr,data={}){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('s-'+scr)?.classList.add('active');
+  document.querySelector(`[data-screen="${scr}"]`)?.classList.add('active');
+  S.screen=scr;
+  if(data.c)S.clienteActual=data.c;
+  const fab=document.getElementById('fab');
+  if(fab)fab.style.display=scr==='clientes'?'flex':'none';
+  render();
+}
+document.querySelectorAll('.nav-item').forEach(n=>n.addEventListener('click',()=>goTo(n.dataset.screen)));
+
+// ── UI ─────────────────────────────────────
+function toast(msg,type='success'){const t=document.getElementById('toast');t.textContent=msg;t.className=`show ${type}`;setTimeout(()=>t.className='',3000);}
+function showModal(html){document.getElementById('modal-body').innerHTML=html;document.getElementById('modal-overlay').classList.add('show');}
+function hideModal(){document.getElementById('modal-overlay').classList.remove('show');}
+document.getElementById('modal-overlay').addEventListener('click',e=>{if(e.target===document.getElementById('modal-overlay'))hideModal();});
+
+// ── DATA ───────────────────────────────────
+async function cargarDatos(){
+  S.loading=true;render();
+  try{
+    const[{data:cl},{data:mod},{data:camp}]=await Promise.all([
+      sb.from('clientes').select('*').order('nombre_razon_social'),
+      sb.from('modelos_fiscales').select('*').order('codigo'),
+      sb.from('campanas').select('*').eq('activa',true).single(),
+    ]);
+    S.clientes=cl||[];S.modelos=mod||[];S.campana=camp||null;
+  }catch(e){toast('Error cargando datos','error');}
+  S.loading=false;render();
+}
+async function guardarCliente(datos){
+  const{error,data}=await sb.from('clientes').insert([datos]).select().single();
+  if(error)throw error;
+  const mods=S.modelos.filter(m=>sugerirModelos(datos).includes(m.codigo));
+  if(mods.length&&data)await sb.from('obligaciones_cliente').insert(mods.map(m=>({cliente_id:data.id,modelo_id:m.id,origen:'sugerido_auto',activo:true})));
+  return data;
+}
+async function updateCliente(id,d){const{error}=await sb.from('clientes').update(d).eq('id',id);if(error)throw error;}
+async function deleteCliente(id){const{error}=await sb.from('clientes').delete().eq('id',id);if(error)throw error;}
+async function cargarFicha(id){
+  const[{data:ob},{data:pr},{data:re}]=await Promise.all([
+    sb.from('obligaciones_cliente').select('*,modelos_fiscales(*)').eq('cliente_id',id),
+    sb.from('presentaciones').select('*,modelos_fiscales(*)').eq('cliente_id',id),
+    sb.from('recordatorios').select('*').eq('cliente_id',id).order('created_at',{ascending:false}).limit(5),
+  ]);
+  return{obs:ob||[],pres:pr||[],recs:re||[]};
+}
+async function setEstado(cid,mid,estado){
+  const campId=S.campana?.id;if(!campId)return;
+  const{data:ex}=await sb.from('presentaciones').select('id').eq('cliente_id',cid).eq('modelo_id',mid).eq('campana_id',campId).single();
+  const p={estado,...(estado==='presentado'?{fecha_presentacion:new Date().toISOString()}:{})};
+  if(ex)await sb.from('presentaciones').update(p).eq('id',ex.id);
+  else await sb.from('presentaciones').insert([{cliente_id:cid,modelo_id:mid,campana_id:campId,...p}]);
+}
+
+// ── UTILS ──────────────────────────────────
+const ini=n=>n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+function avCol(n){const c=[['rgba(79,142,247,.2)','#4f8ef7'],['rgba(34,197,94,.2)','#22c55e'],['rgba(245,158,11,.2)','#f59e0b'],['rgba(239,68,68,.2)','#ef4444'],['rgba(124,92,191,.2)','#7c5cbf'],['rgba(59,130,246,.2)','#3b82f6']];return c[n.charCodeAt(0)%c.length];}
+function rowHTML(c){const[bg,fg]=avCol(c.nombre_razon_social);return`<div class="client-avatar" style="background:${bg};color:${fg}">${ini(c.nombre_razon_social)}</div><div class="client-info"><div class="client-name">${c.nombre_razon_social}</div><div class="client-meta">${LT[c.tipo_cliente]||c.tipo_cliente} · ${c.nif_cif} · ${LI[c.situacion_iva]||c.situacion_iva}</div></div><div class="semaforo s-${c.semaforo||'amarillo'}"></div>`;}
+
+// ══════════════════════════════════════════════════════
+// ★★★  OCR MODELO 036 CON CLAUDE API  ★★★
+// ══════════════════════════════════════════════════════
+function abrirImportador(){
+  ocrData=null;
+  showModal(`
+    <div class="modal-title">📋 Importar Modelo 036</div>
+    <div class="modal-sub">Adjunta el PDF descargado de la AEAT o una foto del documento</div>
+    <div class="upload-zone" onclick="document.getElementById('file-input').click()">
+      <div class="upload-icon">📄</div>
+      <div class="upload-title">Toca para adjuntar el 036</div>
+      <div class="upload-sub">Acepta PDF y cualquier formato de imagen</div>
+    </div>
+    <div style="padding:10px 14px;background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-sm);font-size:11px">
+      <span style="color:var(--yellow);font-weight:600">⚠️ Revisa siempre los datos antes de guardar.</span>
+      <span style="color:var(--text2)"> Claude extrae automáticamente pero tú validas.</span>
+    </div>
+  `);
+  document.getElementById('file-input').onchange=async e=>{
+    const f=e.target.files[0];if(!f)return;
+    e.target.value='';
+    await procesarOCR(f);
+  };
+}
+
+async function procesarOCR(file){
+  const apiKey=getKey();
+  if(!apiKey){toast('Configura tu API key en Config ⚙️','error');return;}
+
+  // Pantalla de progreso
+  showModal(`
+    <div class="modal-title">⏳ Analizando el 036</div>
+    <div class="modal-sub" style="margin-bottom:16px">${file.name}</div>
+    <div id="pasos">
+      <div class="ocr-step"><div class="step-icon active" id="ico1">📂</div><div><div style="font-size:13px;font-weight:500">Leyendo archivo</div><div style="font-size:11px;color:var(--text2)">Preparando para Claude...</div></div></div>
+      <div class="ocr-step"><div class="step-icon pending" id="ico2">🔍</div><div><div style="font-size:13px;font-weight:500">Analizando documento</div><div style="font-size:11px;color:var(--text2)">Claude lee el 036...</div></div></div>
+      <div class="ocr-step"><div class="step-icon pending" id="ico3">🧩</div><div><div style="font-size:13px;font-weight:500">Extrayendo campos</div><div style="font-size:11px;color:var(--text2)">Nombre, NIF, IAE, régimen...</div></div></div>
+      <div class="ocr-step"><div class="step-icon pending" id="ico4">✅</div><div><div style="font-size:13px;font-weight:500">Preparando formulario</div><div style="font-size:11px;color:var(--text2)">Listo para revisar</div></div></div>
+    </div>
+  `);
+
+  function paso(done,next){
+    const d=document.getElementById(done);
+    if(d){d.className='step-icon done';d.textContent='✓';}
+    if(next){const n=document.getElementById(next);if(n)n.className='step-icon active';}
+  }
+
+  try{
+    // 1. Base64
+    const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
+    paso('ico1','ico2');
+
+    const isPDF=file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf');
+    const mime=isPDF?'application/pdf':(file.type||'image/jpeg');
+
+    // 2. Llamada a Claude
+    const prompt=`Eres experto en fiscalidad española. Analiza este Modelo 036 de la AEAT y extrae los datos.
+Responde ÚNICAMENTE con un JSON válido, sin markdown ni texto adicional:
+
+{
+  "nombre_razon_social": "nombre completo tal como aparece en el 036",
+  "nif_cif": "NIF o CIF sin espacios",
+  "email": "email o null",
+  "telefono": "teléfono o null",
+  "domicilio_fiscal": "dirección completa con CP y municipio",
+  "tipo_cliente": "autonomo | sociedad | asociacion",
+  "regimen_fiscal": "estimacion_directa | modulos | general | simplificado",
+  "situacion_iva": "normal | exento | no_sujeto | mixto",
+  "periodicidad": "trimestral | mensual",
+  "tiene_trabajadores": false,
+  "tiene_alquileres": false,
+  "epigrafes_iae": ["código - descripción"],
+  "observaciones": "datos adicionales relevantes del documento",
+  "confianza": "alta | media | baja",
+  "campos_dudosos": ["campos donde no estás seguro"]
+}
+
+Criterios:
+- tipo_cliente: NIF con letra inicial = sociedad (SL,SA,SLU) o asociacion (G...). NIF numérico = autonomo.
+- regimen_fiscal: busca casillas de alta de actividades. Módulos/estimación objetiva = "modulos". Estimación directa = "estimacion_directa". Régimen general IS = "general".
+- situacion_iva: dado de alta en IVA sin exención = "normal". Exención art.20 LIVA = "exento". No realiza actividad sujeta = "no_sujeto".
+- epigrafes_iae: extrae todos los que aparezcan.
+- Si un campo no está en el documento usa null, nunca inventes datos.`;
+
+    const body={
+      model:'claude-sonnet-4-20250514',
+      max_tokens:1000,
+      messages:[{role:'user',content:[
+        isPDF
+          ?{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
+          :{type:'image',source:{type:'base64',media_type:mime,data:b64}},
+        {type:'text',text:prompt}
+      ]}]
+    };
+
+    const res=await fetch(CLAUDE_API,{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify(body)});
+    if(!res.ok){const e=await res.json();throw new Error(e.error?.message||`Error ${res.status}`);}
+
+    paso('ico2','ico3');
+    const data=await res.json();
+    const txt=data.content?.find(b=>b.type==='text')?.text||'';
+    const clean=txt.replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    const extraido=JSON.parse(clean);
+
+    paso('ico3','ico4');
+    paso('ico4',null);
+    ocrData=extraido;
+
+    await new Promise(r=>setTimeout(r,500));
+    mostrarResultadoOCR(extraido);
+
+  }catch(e){
+    console.error(e);
+    showModal(`
+      <div class="modal-title">❌ Error al procesar</div>
+      <div style="color:var(--red);font-size:13px;margin-bottom:12px">${e.message}</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:16px">Posibles causas: API key incorrecta, documento protegido o ilegible.</div>
+      <button class="btn btn-secondary" onclick="abrirImportador()">🔄 Intentar de nuevo</button>
+    `);
+  }
+}
+
+function mostrarResultadoOCR(d){
+  const cIcon={alta:'✅',media:'⚠️',baja:'🔴'}[d.confianza]||'❓';
+  const cColor={alta:'var(--green)',media:'var(--yellow)',baja:'var(--orange)'}[d.confianza]||'var(--text2)';
+  const dudosos=d.campos_dudosos||[];
+  const isDud=label=>dudosos.some(f=>f.toLowerCase().includes(label.toLowerCase())||label.toLowerCase().includes(f.toLowerCase()));
+
+  const filas=[
+    ['Nombre',d.nombre_razon_social],
+    ['NIF/CIF',d.nif_cif],
+    ['Tipo',LT[d.tipo_cliente]||d.tipo_cliente],
+    ['Régimen',LR[d.regimen_fiscal]||d.regimen_fiscal],
+    ['IVA',LI[d.situacion_iva]||d.situacion_iva],
+    ['Domicilio',d.domicilio_fiscal],
+    ['Email',d.email],
+    ['Teléfono',d.telefono],
+    ['Periodicidad',d.periodicidad],
+    ['Trabajadores',d.tiene_trabajadores?'Sí':'No'],
+    ['Alquileres',d.tiene_alquileres?'Sí':'No'],
+    ['IAE',d.epigrafes_iae?.join(' · ')||null],
+  ].filter(([,v])=>v!=null&&v!==undefined&&v!=='');
+
+  showModal(`
+    <div class="modal-title">🔍 Datos extraídos del 036</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <span style="font-size:18px">${cIcon}</span>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:${cColor}">Confianza: ${(d.confianza||'').toUpperCase()}</div>
+        ${dudosos.length?`<div style="font-size:11px;color:var(--text2)">Revisar: ${dudosos.join(', ')}</div>`:''}
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:14px">
+      ${filas.map(([label,valor])=>{
+        const warn=isDud(label);
+        return`<div class="ef-row">
+          <span class="ef-label">${label}</span>
+          <span class="ef-value" style="${warn?'color:var(--yellow)':''}">${valor}</span>
+          ${warn?'<span class="ef-warn">REVISAR</span>':'<span class="ef-ok">OK</span>'}
+        </div>`;
+      }).join('')}
+    </div>
+    ${d.observaciones?`<div style="padding:10px 14px;background:rgba(79,142,247,.06);border:1px solid rgba(79,142,247,.2);border-radius:var(--radius-sm);margin-bottom:14px;font-size:12px;color:var(--text2)"><strong style="color:var(--accent)">Notas:</strong> ${d.observaciones}</div>`:''}
+    <div style="padding:10px 14px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-sm);margin-bottom:14px;font-size:11px;color:var(--yellow)">
+      ⚠️ Revisa todos los campos antes de crear el cliente. Modifica lo que necesites en el formulario.
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-secondary" style="flex:1" onclick="abrirImportador()">🔄 Otro archivo</button>
+      <button class="btn btn-green" style="flex:2" onclick="abrirFormOCR()">✏️ Revisar y crear</button>
+    </div>
+  `);
+}
+
+function abrirFormOCR(){hideModal();mostrarForm(null,ocrData);}
+
+// ── DASHBOARD ─────────────────────────────
+function renderDashboard(){
+  const el=document.getElementById('s-dashboard');
+  if(S.loading){el.innerHTML='<div class="loading"><span class="spinner">⏳</span> Cargando...</div>';return;}
+  const act=S.clientes.filter(c=>c.activo);
+  const urg=act.filter(c=>c.semaforo==='rojo').length;
+  const pend=act.filter(c=>['amarillo','naranja'].includes(c.semaforo)).length;
+  const verde=act.filter(c=>c.semaforo==='verde').length;
+  const pct=act.length?Math.round(verde/act.length*100):0;
+
+  el.innerHTML=`
+    <div class="page-header">
+      <div><div class="page-title">Buenos días 👋</div><div class="page-sub">TAC · ${new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})}</div></div>
+      <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--accent));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">LS</div>
+    </div>
+    <div class="stats-row">
+      <div class="stat-card fade-up" onclick="goTo('clientes')" style="animation-delay:.05s"><div class="stat-dot" style="background:var(--accent)"></div><div class="stat-num">${act.length}</div><div class="stat-label">Clientes activos</div></div>
+      <div class="stat-card fade-up" style="animation-delay:.08s"><div class="stat-dot" style="background:var(--red)"></div><div class="stat-num" style="color:var(--red)">${urg}</div><div class="stat-label">Urgentes</div></div>
+      <div class="stat-card fade-up" style="animation-delay:.11s"><div class="stat-dot" style="background:var(--yellow)"></div><div class="stat-num" style="color:var(--yellow)">${pend}</div><div class="stat-label">Pendientes</div></div>
+    </div>
+    ${S.campana?`
+    <div style="margin:0 20px 18px;padding:16px;background:linear-gradient(135deg,#1a2540,#1e1a35);border:1px solid var(--border);border-radius:var(--radius)" class="fade-up">
+      <div style="font-size:10px;color:var(--text2);font-weight:600;letter-spacing:.5px;text-transform:uppercase;margin-bottom:4px">Campaña activa</div>
+      <div style="font-size:17px;font-weight:700;margin-bottom:12px">${S.campana.nombre} · Vence ${new Date(S.campana.fecha_vencimiento).toLocaleDateString('es-ES',{day:'numeric',month:'short'})}</div>
+      <div style="background:rgba(255,255,255,.07);border-radius:6px;height:7px"><div style="height:7px;border-radius:6px;background:linear-gradient(90deg,var(--accent2),var(--accent));width:${pct}%"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--text2)">
+        <span><strong style="color:var(--text)">${verde}</strong> al día</span>
+        <span><strong style="color:var(--text)">${diasHasta(S.campana.fecha_vencimiento)}</strong> días restantes</span>
+      </div>
+    </div>`:''}
+    <div class="section-h"><span class="section-title">Acceso rápido</span></div>
+    <div style="display:flex;gap:10px;padding:0 20px 18px">
+      <button class="btn btn-secondary" style="flex:1;font-size:12px;padding:11px 8px" onclick="mostrarForm()">➕ Nuevo manual</button>
+      <button class="btn btn-primary" style="flex:1;font-size:12px;padding:11px 8px" onclick="abrirImportador()">📋 Importar 036</button>
+    </div>
+    <div class="section-h"><span class="section-title">Clientes recientes</span><span class="section-link" onclick="goTo('clientes')">Ver todos</span></div>
+    ${act.slice(0,4).map((c,i)=>{
+  const borde={rojo:'border-left:3px solid var(--red)',naranja:'border-left:3px solid var(--orange)',amarillo:'border-left:3px solid var(--yellow)',verde:'border-left:3px solid var(--green)',azul:'border-left:3px solid var(--blue)'}[c.semaforo]||'';
+  return`<div style="margin:0 20px ${i<3?'8px':'0'};${borde}" class="card card-p fade-up"><div class="client-row" onclick="abrirFicha('${c.id}')">${rowHTML(c)}</div></div>`;
+}).join('')}
+    ${!act.length?`<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-title">Sin clientes todavía</div><div class="empty-sub">Importa un 036 o añade manualmente</div></div>`:''}
+  `;
+}
+
+// ── CLIENTES ──────────────────────────────
+function renderClientes(){
+  const el=document.getElementById('s-clientes');
+  if(S.loading){el.innerHTML='<div class="loading"><span class="spinner">⏳</span> Cargando...</div>';return;}
+  let lista=S.clientes.filter(c=>c.activo);
+  if(S.q){const q=S.q.toLowerCase();lista=lista.filter(c=>c.nombre_razon_social.toLowerCase().includes(q)||(c.nif_cif||'').toLowerCase().includes(q));}
+  if(S.filtro==='urgentes')lista=lista.filter(c=>c.semaforo==='rojo');
+  else if(S.filtro==='pendientes')lista=lista.filter(c=>['amarillo','naranja'].includes(c.semaforo));
+  else if(S.filtro==='aldia')lista=lista.filter(c=>c.semaforo==='verde');
+  else if(S.filtro==='sociedades')lista=lista.filter(c=>c.tipo_cliente==='sociedad');
+  else if(S.filtro==='autonomos')lista=lista.filter(c=>c.tipo_cliente==='autonomo');
+
+  el.innerHTML=`
+    <div class="page-header"><div><div class="page-title">Clientes</div><div class="page-sub">${S.clientes.filter(c=>c.activo).length} activos</div></div></div>
+    <div class="search-wrap"><div class="search-bar"><span>🔍</span><input type="text" placeholder="Buscar nombre o NIF..." value="${S.q}" oninput="S.q=this.value;renderClientes()"></div></div>
+    <div class="chips">
+      ${[['todos','Todos'],['urgentes','🔴 Urgentes'],['pendientes','🟡 Pendientes'],['aldia','🟢 Al día'],['sociedades','Sociedades'],['autonomos','Autónomos']]
+        .map(([k,l])=>`<div class="chip ${S.filtro===k?'active':''}" onclick="S.filtro='${k}';renderClientes()">${l}</div>`).join('')}
+    </div>
+    <div class="semaforo-legend">
+      <div class="sl-item"><div class="sl-dot" style="background:var(--green)"></div><span class="sl-label">Presentado</span></div>
+      <div class="sl-item"><div class="sl-dot" style="background:var(--yellow)"></div><span class="sl-label">En plazo</span></div>
+      <div class="sl-item"><div class="sl-dot" style="background:var(--orange)"></div><span class="sl-label">Sin docs</span></div>
+      <div class="sl-item"><div class="sl-dot" style="background:var(--red)"></div><span class="sl-label">Urgente</span></div>
+      <div class="sl-item"><div class="sl-dot" style="background:var(--blue)"></div><span class="sl-label">Exento</span></div>
+    </div>
+    <div class="client-list">
+      ${lista.length
+        ?lista.sort((a,b)=>{const ord={rojo:0,naranja:1,amarillo:2,azul:3,verde:4};return(ord[a.semaforo]??2)-(ord[b.semaforo]??2);}).map((c,i)=>{
+  const borde={rojo:'border-left:3px solid var(--red)',naranja:'border-left:3px solid var(--orange)',amarillo:'border-left:3px solid var(--yellow)',verde:'border-left:3px solid var(--green)',azul:'border-left:3px solid var(--blue)'}[c.semaforo]||'';
+  return`<div class="card card-p fade-up" style="animation-delay:${i*.04}s;${borde}"><div class="client-row" onclick="abrirFicha('${c.id}')">${rowHTML(c)}</div></div>`;
+}).join('')
+        :`<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">Sin resultados</div><div class="empty-sub">Prueba con otro filtro</div></div>`}
+    </div>
+    <div style="height:90px"></div>
+  `;
+  let fab=document.getElementById('fab');
+  if(!fab){fab=document.createElement('button');fab.id='fab';fab.className='fab';fab.innerHTML='＋';
+    fab.onclick=()=>showModal(`<div class="modal-title">➕ Añadir cliente</div><div class="modal-sub">¿Cómo quieres añadirlo?</div><div style="display:flex;flex-direction:column;gap:10px"><button class="btn btn-primary" onclick="hideModal();mostrarForm()">✏️ Rellenar manualmente</button><button class="btn btn-green" onclick="hideModal();abrirImportador()">📋 Importar desde Modelo 036</button></div>`);
+    document.getElementById('app').appendChild(fab);}
+  fab.style.display='flex';
+}
+
+// ── FICHA ─────────────────────────────────
+async function abrirFicha(id){S.clienteActual=S.clientes.find(c=>c.id===id);goTo('ficha');}
+
+async function renderFicha(){
+  const el=document.getElementById('s-ficha');
+  const c=S.clienteActual;if(!c){goTo('clientes');return;}
+  el.innerHTML='<div class="loading"><span class="spinner">⏳</span> Cargando...</div>';
+  const{obs,pres,recs}=await cargarFicha(c.id);
+  const sem=calcularSemaforo(obs,pres);
+  if(sem!==c.semaforo){await updateCliente(c.id,{semaforo:sem});const i=S.clientes.findIndex(x=>x.id===c.id);if(i>=0){S.clientes[i].semaforo=sem;S.clienteActual={...c,semaforo:sem};}}
+  const[bg,fg]=avCol(c.nombre_razon_social);
+  const act=obs.filter(o=>o.activo&&o.origen!=='excluido_manual');
+  const excl=obs.filter(o=>o.origen==='excluido_manual');
+  const estOb=o=>pres.find(p=>p.modelo_id===o.modelo_id)?.estado||'pendiente';
+  const bdg=(origen,est)=>{
+    if(origen==='excluido_manual')return`<span class="modelo-badge mb-excl">EXCLUIDO</span>`;
+    if(est==='presentado')return`<span class="modelo-badge mb-auto">PRESENTADO</span>`;
+    if(est==='en_preparacion')return`<span class="modelo-badge mb-sug">EN PREP.</span>`;
+    if(origen==='sugerido_auto')return`<span class="modelo-badge mb-sug">SUGERIDO</span>`;
+    return`<span class="modelo-badge mb-pend">PENDIENTE</span>`;
+  };
+  el.innerHTML=`
+    <div class="ficha-hero">
+      <button class="back-btn" onclick="goTo('clientes')">←</button>
+      <div class="hero-row">
+        <div class="hero-avatar" style="background:${bg};color:${fg}">${ini(c.nombre_razon_social)}</div>
+        <div style="flex:1;min-width:0">
+          <div class="hero-name">${c.nombre_razon_social}</div>
+          <div class="hero-nif">${c.nif_cif}</div>
+          <span class="hero-badge">${LT[c.tipo_cliente]||c.tipo_cliente} · ${LR[c.regimen_fiscal]||c.regimen_fiscal}</span>
+        </div>
+        <div class="semaforo s-${sem}" style="width:14px;height:14px"></div>
+      </div>
+    </div>
+    <div class="tags-row">
+      ${c.tiene_trabajadores?'<span class="tag on">Con trabajadores</span>':'<span class="tag off">Sin trabajadores</span>'}
+      ${c.tiene_alquileres?'<span class="tag on">Alquiler c/ retención</span>':''}
+      <span class="tag">${LI[c.situacion_iva]||c.situacion_iva}</span>
+      <span class="tag">${c.periodicidad==='trimestral'?'Trimestral':'Mensual'}</span>
+      ${c.epigrafes_iae?.length?`<span class="tag">IAE: ${c.epigrafes_iae[0]}</span>`:''}
+    </div>
+    <div class="action-row">
+      <button class="btn btn-primary" onclick="mostrarRecordatorio('${c.id}')">📩 Recordatorio</button>
+      <button class="btn btn-secondary" onclick="mostrarForm('${c.id}')">✏️ Editar</button>
+      <button class="btn btn-danger" style="flex:unset;width:44px;padding:10px 0" onclick="confirmarBorrar('${c.id}')">🗑️</button>
+    </div>
+    <div class="action-row" style="padding-top:0">
+      <button class="btn btn-secondary" onclick="mostrarFacturacion('${c.id}')">🧾 Facturación</button>
+      ${(c.tipo_cliente==='sociedad'||c.tipo_cliente==='autonomo')&&c.tiene_trabajadores?`<button class="btn btn-secondary" onclick="mostrarChecklist('${c.id}')">✅ Obligaciones</button>`:''}
+    </div>
+    <div class="divider"></div>
+    <div class="section-h"><span class="section-title">Modelos fiscales</span><span class="section-link" onclick="modalAnadirModelo('${c.id}')">＋ Añadir</span></div>
+    ${act.length?`<div class="card" style="margin:0 20px 12px">${act.map(o=>{const m=o.modelos_fiscales;const est=estOb(o);return`<div class="modelo-item"><div class="modelo-num">${m.codigo}</div><div class="modelo-desc"><div class="modelo-name">${m.nombre}</div><div class="modelo-period">${m.periodicidad}</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">${bdg(o.origen,est)}<div style="display:flex;flex-direction:column;gap:4px"><select style="font-size:9px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:4px;padding:2px 4px;font-family:'DM Sans',sans-serif" onchange="cambiarEst('${c.id}','${o.modelo_id}',this.value)"><option value="pendiente" ${est==='pendiente'?'selected':''}>Pendiente</option><option value="en_preparacion" ${est==='en_preparacion'?'selected':''}>En preparación</option><option value="revisado" ${est==='revisado'?'selected':''}>Revisado</option><option value="presentado" ${est==='presentado'?'selected':''}>Presentado ✓</option><option value="exento" ${est==='exento'?'selected':''}>🔵 Exento</option></select>${est==='presentado'?`<select style="font-size:9px;background:var(--surface2);border:1px solid var(--border);color:var(--accent2);border-radius:4px;padding:2px 4px;font-family:'DM Sans',sans-serif" onchange="guardarResultado('${c.id}','${o.modelo_id}',this.value)"><option value="">Resultado...</option><option value="a_pagar" ${(pres.find(p=>p.modelo_id===o.modelo_id)?.resultado||'')=='a_pagar'?'selected':''}>A pagar</option><option value="a_compensar" ${(pres.find(p=>p.modelo_id===o.modelo_id)?.resultado||'')=='a_compensar'?'selected':''}>A compensar</option><option value="a_devolver" ${(pres.find(p=>p.modelo_id===o.modelo_id)?.resultado||'')=='a_devolver'?'selected':''}>A devolver</option><option value="resultado_cero" ${(pres.find(p=>p.modelo_id===o.modelo_id)?.resultado||'')=='resultado_cero'?'selected':''}>Resultado cero</option><option value="sin_actividad" ${(pres.find(p=>p.modelo_id===o.modelo_id)?.resultado||'')=='sin_actividad'?'selected':''}>Sin actividad</option></select>`:''}<button style="font-size:9px;background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.2);border-radius:4px;padding:2px 6px;cursor:pointer;font-family:'DM Sans',sans-serif" onclick="eliminarObligacion('${o.id}')">✕ Eliminar</button></div></div></div>`;}).join('')}</div>`:`<div style="padding:14px 20px;font-size:13px;color:var(--text2)">Sin modelos asignados.</div>`}
+    ${excl.length?`<div class="section-h" style="padding-top:4px"><span class="section-title">Excluidos</span></div><div class="card" style="margin:0 20px 12px;opacity:.6">${excl.map(o=>{const m=o.modelos_fiscales;return`<div class="modelo-item"><div class="modelo-num">${m.codigo}</div><div class="modelo-desc"><div class="modelo-name">${m.nombre}</div><div class="modelo-period">${o.motivo_exclusion||'Sin motivo'}</div></div><span class="modelo-badge mb-excl">EXCLUIDO</span></div>`;}).join('')}</div>`:''}
+    ${recs.length?`<div class="divider"></div><div class="section-h"><span class="section-title">Últimos recordatorios</span></div><div style="padding:0 20px">${recs.map(r=>`<div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)"><span style="font-size:16px">${{email:'📧',whatsapp:'💬',sms:'📱',plataforma:'🔗'}[r.canal]||'📩'}</span><div><div style="font-size:12px;font-weight:500">${r.mensaje||r.tipo}</div><div style="font-size:10px;color:var(--text2)">${new Date(r.enviado_en).toLocaleDateString('es-ES')} · ${r.canal}</div></div></div>`).join('')}</div>`:''}
+    <div style="height:30px"></div>
+  `;
+}
+
+// ── FORMULARIO CLIENTE ────────────────────
+async function mostrarForm(clienteIdOrNull=null,ocr=null){
+  let c=null;
+  if(typeof clienteIdOrNull==='string')c=S.clientes.find(x=>x.id===clienteIdOrNull);
+  const d=ocr||c||{};
+  const pf=ocr?'prefilled':'';
+  const v=f=>d[f]??'';
+  const sk=(f,op)=>d[f]===op?'selected':'';
+  const esEdit=!!c;
+
+  showModal(`
+    <div class="modal-title">${esEdit?'✏️ Editar cliente':ocr?'📋 Revisar datos del 036':'➕ Nuevo cliente'}</div>
+    <div class="modal-sub">${ocr?'⚠️ Datos pre-rellenados — revisa antes de guardar':esEdit?c.nombre_razon_social:'Rellena los datos del cliente'}</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Tipo</label><select class="form-select ${pf}" id="f-tipo"><option value="autonomo" ${sk('tipo_cliente','autonomo')}>Autónomo</option><option value="sociedad" ${sk('tipo_cliente','sociedad')}>Sociedad</option><option value="asociacion" ${sk('tipo_cliente','asociacion')}>Asociación</option></select></div>
+      <div class="form-group"><label class="form-label">Régimen</label><select class="form-select ${pf}" id="f-reg"><option value="estimacion_directa" ${sk('regimen_fiscal','estimacion_directa')}>Est. directa</option><option value="modulos" ${sk('regimen_fiscal','modulos')}>Módulos</option><option value="general" ${sk('regimen_fiscal','general')}>General</option><option value="simplificado" ${sk('regimen_fiscal','simplificado')}>Simplificado</option></select></div>
+    </div>
+    <div class="form-group"><label class="form-label">Nombre / Razón social *</label><input class="form-input ${pf}" id="f-nom" type="text" placeholder="Ej: Reformas Martín SL" value="${v('nombre_razon_social')}"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">NIF / CIF *</label><input class="form-input ${pf}" id="f-nif" type="text" placeholder="B12345678" value="${v('nif_cif')}"></div>
+      <div class="form-group"><label class="form-label">IVA</label><select class="form-select ${pf}" id="f-iva"><option value="normal" ${sk('situacion_iva','normal')}>Normal</option><option value="exento" ${sk('situacion_iva','exento')}>Exento</option><option value="no_sujeto" ${sk('situacion_iva','no_sujeto')}>No sujeto</option><option value="mixto" ${sk('situacion_iva','mixto')}>Mixto</option></select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input ${pf}" id="f-email" type="email" placeholder="cliente@email.com" value="${v('email')}"></div>
+      <div class="form-group"><label class="form-label">Teléfono</label><input class="form-input ${pf}" id="f-tel" type="tel" placeholder="666 123 456" value="${v('telefono')}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Domicilio fiscal</label><input class="form-input ${pf}" id="f-dom" type="text" placeholder="Calle Mayor 1, 33001 Oviedo" value="${v('domicilio_fiscal')}"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Epígrafes IAE</label><input class="form-input ${pf}" id="f-iae" type="text" placeholder="501.1 - Construcción" value="${(d.epigrafes_iae||[]).join(', ')}"></div>
+      <div class="form-group"><label class="form-label">Periodicidad</label><select class="form-select" id="f-per"><option value="trimestral" ${sk('periodicidad','trimestral')}>Trimestral</option><option value="mensual" ${sk('periodicidad','mensual')}>Mensual</option></select></div>
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px">
+      <div class="toggle-row"><div><div class="toggle-label">Tiene trabajadores</div><div class="toggle-sub">Sugiere Mod. 111 y 190</div></div><div class="toggle ${d.tiene_trabajadores?'on':''}" id="t-tr" onclick="this.classList.toggle('on')"></div></div>
+      <div class="toggle-row"><div><div class="toggle-label">Alquileres con retención</div><div class="toggle-sub">Sugiere Mod. 115 y 180</div></div><div class="toggle ${d.tiene_alquileres?'on':''}" id="t-al" onclick="this.classList.toggle('on')"></div></div>
+    </div>
+    <div class="form-group"><label class="form-label">Observaciones</label><textarea class="form-textarea" id="f-obs" placeholder="Notas internas...">${v('observaciones')}</textarea></div>
+    ${ocr?`<div style="padding:10px 14px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius-sm);margin-bottom:14px;font-size:11px;color:var(--green)">✅ Campos en verde = pre-rellenados por OCR. Modifica lo que necesites.</div>`:''}
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn btn-secondary" style="flex:1" onclick="hideModal()">Cancelar</button>
+      <button class="btn btn-primary" style="flex:2" onclick="${esEdit?`ejecutarEdit('${c.id}')`:'ejecutarCrear()'}">${esEdit?'💾 Guardar':'✅ Crear cliente'}</button>
+    </div>
+  `);
+}
+
+function recoger(){
+  return{
+    nombre_razon_social:document.getElementById('f-nom').value.trim(),
+    nif_cif:document.getElementById('f-nif').value.trim().toUpperCase(),
+    tipo_cliente:document.getElementById('f-tipo').value,
+    regimen_fiscal:document.getElementById('f-reg').value,
+    situacion_iva:document.getElementById('f-iva').value,
+    email:document.getElementById('f-email').value.trim()||null,
+    telefono:document.getElementById('f-tel').value.trim()||null,
+    domicilio_fiscal:document.getElementById('f-dom').value.trim()||null,
+    periodicidad:document.getElementById('f-per').value,
+    tiene_trabajadores:document.getElementById('t-tr').classList.contains('on'),
+    tiene_alquileres:document.getElementById('t-al').classList.contains('on'),
+    observaciones:document.getElementById('f-obs').value.trim()||null,
+    epigrafes_iae:document.getElementById('f-iae').value.trim()?document.getElementById('f-iae').value.split(',').map(s=>s.trim()).filter(Boolean):[],
+  };
+}
+async function ejecutarCrear(){
+  const d=recoger();
+  if(!d.nombre_razon_social||!d.nif_cif){toast('Nombre y NIF son obligatorios','error');return;}
+  try{await guardarCliente({...d,activo:true,semaforo:'amarillo'});hideModal();toast(`✅ ${d.nombre_razon_social} creado`);await cargarDatos();}
+  catch(e){toast(e.message?.includes('unique')?'Ya existe un cliente con ese NIF':'Error guardando cliente','error');}
+}
+async function ejecutarEdit(id){
+  const d=recoger();
+  if(!d.nombre_razon_social||!d.nif_cif){toast('Nombre y NIF son obligatorios','error');return;}
+  try{await updateCliente(id,d);hideModal();toast('✅ Cliente actualizado');await cargarDatos();await renderFicha();}
+  catch(e){toast('Error actualizando cliente','error');}
+}
+async function confirmarBorrar(id){
+  const c=S.clientes.find(x=>x.id===id);
+  showModal(`<div class="modal-title">🗑️ Eliminar cliente</div><div class="modal-sub">¿Eliminar a <strong>${c?.nombre_razon_social}</strong>? No se puede deshacer.</div><div style="display:flex;gap:10px;margin-top:8px"><button class="btn btn-secondary" style="flex:1" onclick="hideModal()">Cancelar</button><button class="btn btn-danger" style="flex:1" onclick="ejecutarBorrar('${id}')">Eliminar</button></div>`);
+}
+async function ejecutarBorrar(id){
+  try{await deleteCliente(id);hideModal();toast('Cliente eliminado');await cargarDatos();goTo('clientes');}
+  catch(e){toast('Error eliminando','error');}
+}
+
+// ── RECORDATORIO ──────────────────────────
+function mostrarRecordatorio(id){
+  const c=S.clientes.find(x=>x.id===id)||S.clienteActual;
+  const msgDefecto=`Estimado/a ${c?.nombre_razon_social}, le recordamos que necesitamos la documentación del 1T 2026 para poder presentar sus modelos fiscales en plazo. La domiciliación bancaria vence el 15 de abril y la presentación general el 20 de abril. Muchas gracias.`;
+  showModal(`
+    <div class="modal-title">📩 Recordatorio</div>
+    <div class="modal-sub">${c?.nombre_razon_social}</div>
+    <div class="form-group"><label class="form-label">Canal</label>
+      <select class="form-select" id="r-can" onchange="actualizarBtnRecordatorio()">
+        <option value="email">📧 Email</option>
+        <option value="whatsapp">💬 WhatsApp</option>
+        <option value="sms">📱 SMS</option>
+        <option value="plataforma">🔗 Plataforma</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Mensaje</label>
+      <textarea class="form-textarea" id="r-msg" style="height:100px">${msgDefecto}</textarea>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-secondary" style="flex:1" onclick="hideModal()">Cancelar</button>
+      <button class="btn btn-primary" style="flex:2" id="btn-enviar-rec" onclick="enviarRec('${id}')">📩 Registrar</button>
+    </div>
+  `);
+}
+function actualizarBtnRecordatorio(){
+  const canal=document.getElementById('r-can')?.value;
+  const btn=document.getElementById('btn-enviar-rec');
+  if(!btn)return;
+  if(canal==='whatsapp'){btn.textContent='💬 Abrir WhatsApp';btn.onclick=()=>abrirWhatsApp();}
+  else{btn.textContent='📩 Registrar';btn.onclick=()=>enviarRec(document.getElementById('r-can').dataset.id);}
+}
+function abrirWhatsApp(){
+  const msg=document.getElementById('r-msg')?.value||'';
+  const tel=S.clienteActual?.telefono||'';
+  const telLimpio=tel.replace(/\s+/g,'').replace(/^\+/,'').replace(/^0034/,'34').replace(/^34/,'34');
+  const url=telLimpio
+    ?`https://wa.me/${telLimpio}?text=${encodeURIComponent(msg)}`
+    :`https://wa.me/?text=${encodeURIComponent(msg)}`;
+  window.open(url,'_blank');
+}
+async function enviarRec(id){
+  const realId = id || S.clienteActual?.id;
+  if(!realId){toast('Error: cliente no identificado','error');return;}
+  try{
+    await sb.from('recordatorios').insert([{
+      cliente_id:realId,
+      tipo:'documentacion',
+      canal:document.getElementById('r-can').value,
+      estado:'enviado',
+      mensaje:document.getElementById('r-msg').value.trim()
+    }]);
+    hideModal();
+    toast('✅ Recordatorio registrado');
+    if(S.screen==='ficha')await renderFicha();
+  }catch(e){toast('Error registrando recordatorio','error');}
+}
+
+// ── AÑADIR MODELO ─────────────────────────
+async function modalAnadirModelo(id){
+  showModal(`<div class="modal-title">➕ Añadir modelo</div><div class="modal-sub">Selecciona el modelo a añadir</div><div style="display:flex;flex-direction:column;gap:8px">${S.modelos.map(m=>`<button class="btn btn-secondary" style="justify-content:flex-start;gap:12px" onclick="agregarMod('${id}','${m.id}')"><span style="font-family:'DM Mono',monospace;color:var(--accent);font-weight:700;width:30px">${m.codigo}</span><span style="font-size:13px">${m.nombre}</span></button>`).join('')}</div>`);
+}
+async function agregarMod(cid,mid){
+  try{await sb.from('obligaciones_cliente').upsert([{cliente_id:cid,modelo_id:mid,origen:'confirmado_asesor',activo:true}],{onConflict:'cliente_id,modelo_id'});hideModal();toast('✅ Modelo añadido');await renderFicha();}
+  catch(e){toast('Error','error');}
+}
+async function cambiarEst(cid,mid,est){
+  try{await setEstado(cid,mid,est);toast(est==='presentado'?'✅ Presentado':'Estado actualizado');await renderFicha();}
+  catch(e){toast('Error','error');}
+}
+
+// ── CONFIG ────────────────────────────────
+function renderConfig(){
+  const el=document.getElementById('s-config');
+  const k=getKey();
+  el.innerHTML=`
+    <div class="page-header"><div class="page-title">Configuración</div></div>
+    <div class="section-h"><span class="section-title">API Key Anthropic — OCR 036</span></div>
+    <div class="card" style="margin:0 20px 8px;padding:16px">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:10px">Necesaria para leer el Modelo 036 automáticamente. Usa la misma de TacScan.</div>
+      <input class="form-input" id="k-inp" type="password" placeholder="sk-ant-api03-..." value="${k}" style="margin-bottom:10px;font-family:'DM Mono',monospace;font-size:12px">
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" style="flex:2" onclick="guardarK()">💾 Guardar</button>
+        <button class="btn btn-secondary" style="flex:1" onclick="const i=document.getElementById('k-inp');i.type=i.type==='password'?'text':'password'">👁️</button>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:${k?'var(--green)':'var(--orange)'}">${k?'✅ API key configurada':'⚠️ Sin API key — importación 036 desactivada'}</div>
+    </div>
+    <div style="padding:8px 20px 20px"><button class="btn btn-green" onclick="abrirImportador()">📋 Probar importación de Modelo 036</button></div>
+    <div class="section-h"><span class="section-title">Campaña activa</span></div>
+    <div class="card" style="margin:0 20px 20px;padding:14px 16px">
+      ${S.campana?`<div style="font-size:14px;font-weight:600">${S.campana.nombre}</div><div style="font-size:11px;color:var(--text2);margin-top:4px">Vence: ${new Date(S.campana.fecha_vencimiento).toLocaleDateString('es-ES',{day:'numeric',month:'long',year:'numeric'})}</div><div style="font-size:11px;margin-top:4px;color:var(--${diasHasta(S.campana.fecha_vencimiento)<=7?'red':'yellow'})">${diasHasta(S.campana.fecha_vencimiento)} días restantes</div>`:'<div style="color:var(--text2);font-size:13px">Sin campaña activa</div>'}
+    </div>
+    <div class="section-h"><span class="section-title">Motor de reglas activo</span></div>
+    <div class="card" style="margin:0 20px 20px;padding:14px 16px">
+      ${[['Autónomo est. directa + IVA','303 + 130'],['Autónomo módulos','131'],['Sociedad','303 + 200'],['Con trabajadores','111 + 190'],['Con alquileres','115 + 180'],['IVA no exento','+ 390 anual']].map(([c,m])=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">${c}</span><span style="font-family:'DM Mono',monospace;color:var(--accent);font-weight:600">${m}</span></div>`).join('')}
+    </div>
+    <div style="padding:0 20px 30px"><button class="btn btn-secondary" onclick="cargarDatos().then(()=>toast('Datos recargados ✓'))">🔄 Recargar datos</button></div>
+  `;
+}
+function guardarK(){const k=document.getElementById('k-inp').value.trim();if(!k){toast('Introduce la API key','error');return;}setKey(k);toast('✅ API key guardada');renderConfig();}
+
+
+// ── RESULTADO MODELO ──────────────────────
+async function guardarResultado(cid, mid, resultado) {
+  const campId = S.campana?.id; if (!campId) return;
+  const {data:ex} = await sb.from('presentaciones').select('id').eq('cliente_id',cid).eq('modelo_id',mid).eq('campana_id',campId).single();
+  if (ex) {
+    await sb.from('presentaciones').update({resultado}).eq('id',ex.id);
+    const lbl = {a_pagar:'A pagar 💰',a_compensar:'A compensar ↔️',a_devolver:'A devolver 🔄',resultado_cero:'Resultado cero ⚖️',sin_actividad:'Sin actividad —'}[resultado]||resultado;
+    toast('✅ '+lbl);
+    await renderFicha();
+  }
+}
+
+// ── ELIMINAR OBLIGACION ───────────────────
+async function eliminarObligacion(oblId) {
+  showModal(`
+    <div class="modal-title">✕ Eliminar modelo</div>
+    <div class="modal-sub">¿Eliminar este modelo de la ficha del cliente? No afecta a los datos ya presentados.</div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-secondary" style="flex:1" onclick="hideModal()">Cancelar</button>
+      <button class="btn btn-danger" style="flex:1" onclick="confirmarEliminarObl('${oblId}')">Eliminar</button>
+    </div>
+  `.replace('${oblId}', oblId));
+}
+async function confirmarEliminarObl(oblId) {
+  try {
+    await sb.from('obligaciones_cliente').delete().eq('id', oblId);
+    hideModal(); toast('Modelo eliminado');
+    await renderFicha();
+  } catch(e) { toast('Error eliminando modelo','error'); }
+}
+
+// ── FACTURACION ───────────────────────────
+async function mostrarFacturacion(clienteId) {
+  const c = S.clientes.find(x=>x.id===clienteId)||S.clienteActual;
+  const {data:facturas} = await sb.from('facturas').select('*').eq('cliente_id',clienteId).order('fecha',{ascending:false});
+  const lista = facturas||[];
+  const total = lista.reduce((s,f)=>s+Number(f.importe||0),0);
+  const cobrado = lista.filter(f=>f.estado==='cobrada').reduce((s,f)=>s+Number(f.importe||0),0);
+  const pendiente = total - cobrado;
+
+  showModal(`
+    <div class="modal-title">🧾 Facturación</div>
+    <div class="modal-sub">${c?.nombre_razon_social}</div>
+    <div style="display:flex;gap:10px;margin-bottom:16px">
+      <div style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--text2);margin-bottom:4px">TOTAL</div>
+        <div style="font-size:16px;font-weight:700">${total.toFixed(2)}€</div>
+      </div>
+      <div style="flex:1;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius-sm);padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--green);margin-bottom:4px">COBRADO</div>
+        <div style="font-size:16px;font-weight:700;color:var(--green)">${cobrado.toFixed(2)}€</div>
+      </div>
+      <div style="flex:1;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:var(--radius-sm);padding:12px;text-align:center">
+        <div style="font-size:10px;color:var(--yellow);margin-bottom:4px">PENDIENTE</div>
+        <div style="font-size:16px;font-weight:700;color:var(--yellow)">${pendiente.toFixed(2)}€</div>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="margin-bottom:14px" onclick="mostrarNuevaFactura('${clienteId}')">➕ Nueva factura</button>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${lista.length===0?'<div style="text-align:center;padding:20px;color:var(--text2);font-size:13px">Sin facturas registradas</div>':
+        lista.map(f=>`
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;display:flex;align-items:center;gap:10px">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600">Nº ${f.numero||'—'} · ${f.importe?Number(f.importe).toFixed(2)+'€':'—'}</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px">${f.fecha?new Date(f.fecha).toLocaleDateString('es-ES'):''}</div>
+          </div>
+          <span style="font-size:10px;font-weight:700;padding:4px 10px;border-radius:20px;${f.estado==='cobrada'?'background:rgba(34,197,94,.12);color:var(--green)':'background:rgba(245,158,11,.12);color:var(--yellow)'}">${f.estado==='cobrada'?'COBRADA':'EMITIDA'}</span>
+          ${f.estado==='emitida'?`<button style="font-size:10px;background:rgba(34,197,94,.12);color:var(--green);border:1px solid rgba(34,197,94,.2);border-radius:6px;padding:4px 8px;cursor:pointer" onclick="marcarCobrada('${f.id}','${clienteId}')">✓ Cobrar</button>`:''}
+        </div>`).join('')}
+    </div>
+  `);
+}
+
+async function mostrarNuevaFactura(clienteId) {
+  showModal(`
+    <div class="modal-title">➕ Nueva factura</div>
+    <div class="form-group"><label class="form-label">Número de factura</label><input class="form-input" id="fac-num" type="text" placeholder="2026-001"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Fecha</label><input class="form-input" id="fac-fecha" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
+      <div class="form-group"><label class="form-label">Importe (€)</label><input class="form-input" id="fac-imp" type="number" step="0.01" placeholder="0.00"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Estado</label>
+      <select class="form-select" id="fac-est">
+        <option value="emitida">Emitida — pendiente de cobro</option>
+        <option value="cobrada">Cobrada</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn btn-secondary" style="flex:1" onclick="mostrarFacturacion('${clienteId}')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:2" onclick="guardarFactura('${clienteId}')">💾 Guardar</button>
+    </div>
+  `);
+}
+
+async function guardarFactura(clienteId) {
+  const numero = document.getElementById('fac-num').value.trim();
+  const fecha = document.getElementById('fac-fecha').value;
+  const importe = document.getElementById('fac-imp').value;
+  const estado = document.getElementById('fac-est').value;
+  if (!importe) { toast('Introduce el importe','error'); return; }
+  try {
+    await sb.from('facturas').insert([{cliente_id:clienteId, numero, fecha, importe:parseFloat(importe), estado}]);
+    toast('✅ Factura guardada');
+    await mostrarFacturacion(clienteId);
+  } catch(e) { toast('Error guardando factura','error'); }
+}
+
+async function marcarCobrada(facturaId, clienteId) {
+  try {
+    await sb.from('facturas').update({estado:'cobrada'}).eq('id',facturaId);
+    toast('✅ Factura cobrada');
+    await mostrarFacturacion(clienteId);
+  } catch(e) { toast('Error','error'); }
+}
+
+// ── CHECKLIST OBLIGACIONES ────────────────
+const OBLIGACIONES_LISTA = [
+  {id:'prl', label:'Prevención de Riesgos Laborales', sub:'Plan PRL vigente'},
+  {id:'plan_igualdad', label:'Plan de Igualdad', sub:'Obligatorio >50 trabajadores'},
+  {id:'protocolo_acoso', label:'Protocolo contra el acoso', sub:'Acoso laboral y sexual'},
+  {id:'registro_jornada', label:'Registro de jornada', sub:'Control horario'},
+  {id:'canal_denuncias', label:'Canal de denuncias', sub:'Ley Whistleblowing'},
+  {id:'lopd', label:'LOPD / Protección de datos', sub:'Registro de actividades'},
+  {id:'coordinacion_actividades', label:'Coordinación de actividades', sub:'CAE con terceros'},
+  {id:'reconocimiento_medico', label:'Reconocimiento médico', sub:'Vigilancia de la salud'},
+];
+
+async function mostrarChecklist(clienteId) {
+  const c = S.clientes.find(x=>x.id===clienteId)||S.clienteActual;
+  const {data:checks} = await sb.from('checklist_obligaciones').select('*').eq('cliente_id',clienteId);
+  const mapa = {};
+  (checks||[]).forEach(ch => mapa[ch.tipo] = ch);
+
+  showModal(`
+    <div class="modal-title">✅ Obligaciones empresariales</div>
+    <div class="modal-sub">${c?.nombre_razon_social}</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${OBLIGACIONES_LISTA.map(ob => {
+        const ch = mapa[ob.id];
+        const ok = !!ch;
+        const fecha = ch?.fecha_actualizacion ? new Date(ch.fecha_actualizacion).toLocaleDateString('es-ES') : null;
+        return `
+        <div style="background:var(--surface2);border:1px solid ${ok?'rgba(34,197,94,.3)':'var(--border)'};border-radius:var(--radius-sm);padding:12px 14px;display:flex;align-items:center;gap:12px">
+          <div style="width:28px;height:28px;border-radius:50%;background:${ok?'rgba(34,197,94,.15)':'var(--card)'};border:2px solid ${ok?'var(--green)':'var(--border)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;font-size:14px" onclick="toggleObligacion('${clienteId}','${ob.id}',${ok})">
+            ${ok?'✓':''}
+          </div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:${ok?'var(--text)':'var(--text2)'}">${ob.label}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:1px">${ob.sub}</div>
+            ${fecha?`<div style="font-size:10px;color:var(--green);margin-top:2px">✓ Actualizado: ${fecha}</div>`:''}
+          </div>
+          ${ok?`<button style="font-size:9px;background:rgba(79,142,247,.1);color:var(--accent);border:1px solid rgba(79,142,247,.2);border-radius:6px;padding:3px 8px;cursor:pointer" onclick="actualizarFechaObl('${clienteId}','${ob.id}')">📅 Fecha</button>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="height:10px"></div>
+  `);
+}
+
+async function toggleObligacion(clienteId, tipo, estaActivo) {
+  try {
+    if (estaActivo) {
+      await sb.from('checklist_obligaciones').delete().eq('cliente_id',clienteId).eq('tipo',tipo);
+      toast('Obligación desmarcada');
+    } else {
+      await sb.from('checklist_obligaciones').insert([{cliente_id:clienteId, tipo, fecha_actualizacion:new Date().toISOString().split('T')[0]}]);
+      toast('✅ Obligación marcada como cumplida');
+    }
+    await mostrarChecklist(clienteId);
+  } catch(e) { toast('Error','error'); }
+}
+
+async function actualizarFechaObl(clienteId, tipo) {
+  showModal(`
+    <div class="modal-title">📅 Actualizar fecha</div>
+    <div class="modal-sub">Fecha de última actualización o revisión</div>
+    <div class="form-group"><input class="form-input" id="obl-fecha" type="date" value="${new Date().toISOString().split('T')[0]}"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-secondary" style="flex:1" onclick="mostrarChecklist('${clienteId}')">Cancelar</button>
+      <button class="btn btn-primary" style="flex:2" onclick="guardarFechaObl('${clienteId}','${tipo}')">💾 Guardar</button>
+    </div>
+  `);
+}
+
+async function guardarFechaObl(clienteId, tipo) {
+  const fecha = document.getElementById('obl-fecha').value;
+  try {
+    await sb.from('checklist_obligaciones').update({fecha_actualizacion:fecha}).eq('cliente_id',clienteId).eq('tipo',tipo);
+    toast('✅ Fecha actualizada');
+    await mostrarChecklist(clienteId);
+  } catch(e) { toast('Error','error'); }
+}
+
+// ── RENDER PRINCIPAL ──────────────────────
+function render(){
+  switch(S.screen){
+    case'dashboard':renderDashboard();break;
+    case'clientes':renderClientes();break;
+    case'ficha':renderFicha();break;
+    case'config':renderConfig();break;
+  }
+}
+
+// ── INIT ──────────────────────────────────
+cargarDatos();
+</script>
+</body>
+</html>
