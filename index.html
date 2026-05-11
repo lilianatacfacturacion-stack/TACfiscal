@@ -651,6 +651,9 @@ async function renderFicha(){
       <button class="btn btn-danger" style="flex:unset;width:44px;padding:10px 0" onclick="confirmarBorrar('${c.id}')">🗑️</button>
     </div>
     <div class="action-row" style="padding-top:0">
+      <button class="btn btn-secondary" style="background:rgba(124,92,191,.12);color:var(--accent2);border-color:rgba(124,92,191,.3)" onclick="abrirRentaDesdeCliente('${c.id}')">📝 Renta</button>
+    </div>
+    <div class="action-row" style="padding-top:0">
       <button class="btn btn-secondary" onclick="mostrarFacturacion('${c.id}')">🧾 Facturación</button>
       ${(c.tipo_cliente==='sociedad'||c.tipo_cliente==='autonomo')&&c.tiene_trabajadores?`<button class="btn btn-secondary" onclick="mostrarChecklist('${c.id}')">✅ Obligaciones</button>`:''}
     </div>
@@ -1818,6 +1821,39 @@ async function abrirCuestionario(clienteId, ejercicio) {
 // Reemplaza renderCuestionario y renderPregunta.
 // No se tocan: variables globales, llamadas Supabase,
 // guardarRespuestaBool, guardarRespuestaTexto, finalizarCuestionario.
+
+// ── VINCULACIÓN: Cliente existente → Renta ───────────────────
+async function abrirRentaDesdeCliente(clienteId) {
+  const c = S.clientes.find(x => x.id === clienteId);
+  if (!c) { toast('Cliente no encontrado', 'error'); return; }
+
+  // Verificar si ya tiene ficha en particulares_renta
+  const { data: existing } = await sb.from('particulares_renta')
+    .select('id').eq('cliente_id', clienteId).maybeSingle();
+
+  // Si no existe, crear automáticamente copiando datos del cliente
+  if (!existing) {
+    try {
+      await sb.from('particulares_renta').insert([{
+        cliente_id:   clienteId,
+        modalidad_habitual: 'pendiente',
+        tiene_conyuge: false,
+        tiene_hijos: false,
+        tiene_ascendientes: false,
+        tiene_discapacidad: false,
+      }]);
+      toast('📝 Ficha de renta creada');
+    } catch(e) {
+      toast('Error creando ficha renta', 'error');
+      return;
+    }
+  }
+
+  // Abrir módulo renta con este cliente
+  S.rentaCliente = c;
+  S.rentaEjercicio = 2025;
+  goTo('renta-ficha');
+}
 
 // PASO 2A START — Sistema de bloques y condiciones completo
 // Reemplaza SALTOS simple por árbol condicional completo.
