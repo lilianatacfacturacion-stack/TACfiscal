@@ -693,6 +693,17 @@ function renderConfig(){
     <div class="card" style="margin:0 20px 20px;padding:14px 16px">
       ${[['Autónomo est. directa + IVA','303 + 130'],['Autónomo módulos','131'],['Sociedad','303 + 200'],['Con trabajadores','111 + 190'],['Con alquileres','115 + 180'],['IVA no exento','+ 390 anual']].map(([c,m])=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--text2)">${c}</span><span style="font-family:'DM Mono',monospace;color:var(--accent);font-weight:600">${m}</span></div>`).join('')}
     </div>
+    <div class="section-h"><span class="section-title">💬 Mensaje WhatsApp masivo</span></div>
+    <div class="card" style="margin:0 20px 8px;padding:14px">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px">Mensaje que se envía al hacer el envío masivo. Se guarda en este dispositivo.</div>
+      <textarea id="cfg-wa-msg" style="width:100%;min-height:120px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;font-size:12px;color:var(--text1);resize:vertical;box-sizing:border-box">${getMensajeMasivo().replace(/</g,'&lt;')}</textarea>
+      <button class="btn btn-green" style="margin-top:8px;font-size:12px" onclick="
+        const v=document.getElementById('cfg-wa-msg').value.trim();
+        if(v){localStorage.setItem('tac_msg_masivo',v);toast('✅ Mensaje guardado');}
+        else{localStorage.removeItem('tac_msg_masivo');toast('Mensaje restablecido al predeterminado');}
+      ">💾 Guardar mensaje</button>
+    </div>
+    <div style="height:8px"></div>
     <div style="padding:0 20px 30px"><button class="btn btn-secondary" onclick="cargarDatos().then(()=>toast('Datos recargados ✓'))">🔄 Recargar datos</button></div>
   `;
 }
