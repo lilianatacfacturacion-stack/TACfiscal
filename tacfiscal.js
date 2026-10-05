@@ -51,11 +51,11 @@ function calcularSemaforo(obs,pres){
   // Si todos presentados (incluyendo anuales si los hay) -> verde
   if(actPeriodo.length===0&&actTodos.every(o=>pres.find(p=>p.modelo_id===o.modelo_id)?.estado==='presentado'))return'verde';
   if(actPeriodo.length>0&&actPeriodo.every(o=>{const p=pres.find(p=>p.modelo_id===o.modelo_id);return p&&(p.estado==='presentado'||p.estado==='exento');}))return'verde';
-  // Also check if all period models have no obligations -> verde
-  if(actPeriodo.length===0)return'verde';
+  // Sin modelos periódicos este trimestre -> en plazo (no verde, no han presentado nada)
+  if(actPeriodo.length===0)return'amarillo';
   // Fechas correctas 1T 2026: domiciliacion 15 abril, general 20 abril
   const hoy=new Date();
-  const fechaUrgente=new Date(S.campana?.fecha_vencimiento||'2026-07-20');
+  const fechaUrgente=new Date(S.campana?.fecha_vencimiento||'2026-10-20');
   const dias=Math.ceil((fechaUrgente-hoy)/86400000);
   if(actPeriodo.some(o=>{const p=pres.find(p=>p.modelo_id===o.modelo_id);return(!p||p.estado==='pendiente')&&dias<=7;}))return'rojo';
   if(actPeriodo.some(o=>{const p=pres.find(p=>p.modelo_id===o.modelo_id);return!p||p.estado==='pendiente';}))return'naranja';
@@ -106,6 +106,24 @@ async function cargarDatos(){
       sb.from('campanas').select('*').eq('activa',true).single(),
     ]);
     S.clientes=cl||[];S.modelos=mod||[];S.campana=camp||null;
+    // Recalcular semáforo de todos los clientes con datos del trimestre actual
+    if(camp?.id && S.clientes.length){
+      const campId=camp.id;
+      const[{data:todasObs},{data:todasPres}]=await Promise.all([
+        sb.from('obligaciones_cliente').select('*,modelos_fiscales(*)').eq('activo',true),
+        sb.from('presentaciones').select('*').eq('campana_id',campId),
+      ]);
+      const updates=[];
+      S.clientes=S.clientes.map(c=>{
+        const obs=(todasObs||[]).filter(o=>o.cliente_id===c.id);
+        const pres=(todasPres||[]).filter(p=>p.cliente_id===c.id);
+        const sem=calcularSemaforo(obs,pres);
+        if(sem!==c.semaforo)updates.push({id:c.id,semaforo:sem});
+        return{...c,semaforo:sem};
+      });
+      // Actualizar en BD en paralelo (sin bloquear render)
+      if(updates.length)Promise.all(updates.map(u=>sb.from('clientes').update({semaforo:u.semaforo}).eq('id',u.id)));
+    }
   }catch(e){toast('Error cargando datos','error');}
   S.loading=false;render();
 }
@@ -372,7 +390,7 @@ function renderDashboard(){
       <button class="btn btn-secondary" style="flex:1;font-size:12px;padding:11px 8px" onclick="mostrarForm()">➕ Nuevo manual</button>
       <button class="btn btn-primary" style="flex:1;font-size:12px;padding:11px 8px" onclick="abrirImportador()">📋 Importar 036</button>
     </div>
-    <div style="padding:0 20px 8px"><button class="btn btn-secondary" class="btn btn-secondary btn-wa" style="width:100%;font-size:13px;padding:12px" onclick="envioMasivoWhatsApp()">💬 Aviso masivo WhatsApp &mdash; ${S.campana&&S.campana.nombre?S.campana.nombre:'2T 2026'}</button></div>
+    <div style="padding:0 20px 8px"><button class="btn btn-secondary" class="btn btn-secondary btn-wa" style="width:100%;font-size:13px;padding:12px" onclick="envioMasivoWhatsApp()">💬 Aviso masivo WhatsApp &mdash; ${S.campana&&S.campana.nombre?S.campana.nombre:'3T 2026'}</button></div>
     <div style="padding:0 20px 8px"><button class="btn btn-secondary" style="width:100%;font-size:13px;padding:12px" onclick="enviarResultadosWA()">📊 Enviar resultados trimestrales por WhatsApp</button></div>
     <div style="padding:0 20px 16px"><button class="btn btn-secondary" style="width:100%;font-size:13px;padding:12px" onclick="abrirEnvioFacturas()">🧾 Enviar facturas por WhatsApp</button></div>
     <div class="section-h"><span class="section-title">Clientes recientes</span><span class="section-link" onclick="goTo('clientes')">Ver todos</span></div>
@@ -576,7 +594,7 @@ async function ejecutarBorrar(id){
 // ── RECORDATORIO ──────────────────────────
 function mostrarRecordatorio(id){
   const c=S.clientes.find(x=>x.id===id)||S.clienteActual;
-  const campNombre = S.campana?.nombre || '2T 2026';
+  const campNombre = S.campana?.nombre || '3T 2026';
   const fechaDom = S.campana?.fecha_domiciliacion ? new Date(S.campana.fecha_domiciliacion).toLocaleDateString("es-ES",{day:"numeric",month:"long"}) : "15 de julio";
   const fechaVenc = S.campana?.fecha_vencimiento ? new Date(S.campana.fecha_vencimiento).toLocaleDateString("es-ES",{day:"numeric",month:"long"}) : "20 de julio";
   const msgDefecto = "Estimado/a " + (c?.nombre_razon_social||"") + ", le recordamos que necesitamos la documentación del " + campNombre + " para poder presentar sus modelos fiscales en plazo. La domiciliación bancaria vence el " + fechaDom + " y la presentación general el " + fechaVenc + ". Muchas gracias.";
@@ -2986,7 +3004,7 @@ function enviarTodosWA() {
 
 // ── ENVÍO RESULTADOS TRIMESTRALES POR WHATSAPP ───────────────
 async function enviarResultadosWA() {
-  const campNombre = S.campana?.nombre || '2T 2026';
+  const campNombre = S.campana?.nombre || '3T 2026';
   const fechaVenc = S.campana?.fecha_vencimiento
     ? new Date(S.campana.fecha_vencimiento).toLocaleDateString("es-ES",{day:"numeric",month:"long"})
     : "20 de julio";
@@ -3075,7 +3093,7 @@ async function enviarResultadosWA() {
 
 // ── ENVÍO FACTURAS POR WHATSAPP ───────────────────────────────
 async function abrirEnvioFacturas() {
-  const campNombre = S.campana?.nombre || '2T 2026';
+  const campNombre = S.campana?.nombre || '3T 2026';
 
   showModal(
     '<div class="modal-title">🧾 Enviar facturas por WhatsApp</div>' +
@@ -3094,7 +3112,7 @@ async function abrirEnvioFacturas() {
 
 async function procesarFacturasSeleccionadas(files) {
   if (!files || files.length === 0) return;
-  const campNombre = S.campana?.nombre || '2T 2026';
+  const campNombre = S.campana?.nombre || '3T 2026';
 
   const resultado = document.getElementById('facturas-resultado');
   resultado.style.display = 'block';
