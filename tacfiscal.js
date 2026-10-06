@@ -630,8 +630,8 @@ function abrirWhatsApp(){
   const tel=S.clienteActual?.telefono||'';
   const telLimpio=tel.replace(/\s+/g,'').replace(/^\+/,'').replace(/^0034/,'34').replace(/^34/,'34');
   const url=telLimpio
-    ?`https://wa.me/${telLimpio}?text=${encodeURIComponent(msg)}`
-    :`https://wa.me/?text=${encodeURIComponent(msg)}`;
+    ?`whatsapp://send?phone=${telLimpio}&text=${encodeURIComponent(msg)}`
+    :`whatsapp://send?text=${encodeURIComponent(msg)}`;
   window.open(url,'_blank');
 }
 async function enviarRec(id){
@@ -2983,7 +2983,7 @@ function abrirWAIndividual(tel, clienteId) {
   const msg = window._waBulkMsg || '';
   const telLimpio = tel.replace(/\D/g,'');
   const telFinal = telLimpio.startsWith('34') ? telLimpio : '34' + telLimpio;
-  window.open('https://wa.me/' + telFinal + '?text=' + encodeURIComponent(msg), '_blank');
+  window.open('whatsapp://send?phone=' + telFinal + '&text=' + encodeURIComponent(msg), '_blank');
 }
 
 function enviarTodosWA() {
@@ -2996,7 +2996,7 @@ function enviarTodosWA() {
     setTimeout(function() {
       const tel = (c.telefono||'').replace(/\D/g,'');
       const telFinal = tel.startsWith('34') ? tel : '34' + tel;
-      if (tel) window.open('https://wa.me/' + telFinal + '?text=' + encodeURIComponent(msg), '_blank');
+      if (tel) window.open('whatsapp://send?phone=' + telFinal + '&text=' + encodeURIComponent(msg), '_blank');
     }, i * 800);
   });
 }
@@ -3075,7 +3075,7 @@ async function enviarResultadosWA() {
     conTel.map(function(x) {
       const tel = (x.cliente.telefono||'').replace(/[^0-9]/g,'');
       const telFinal = tel.startsWith('34') ? tel : '34' + tel;
-      const waUrl = 'https://wa.me/' + telFinal + '?text=' + encodeURIComponent(x.msg);
+      const waUrl = 'whatsapp://send?phone=' + telFinal + '&text=' + encodeURIComponent(x.msg);
       return '<div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px 12px">' +
         '<div class="flex-between" style="margin-bottom:4px">' +
           '<div class="t-sm fw-600">' + x.cliente.nombre_razon_social + '</div>' +
@@ -3166,7 +3166,7 @@ async function procesarFacturasSeleccionadas(files) {
       const tel = (item.cliente.telefono||'').replace(/[^0-9]/g,'');
       const telFinal = tel.startsWith('34') ? tel : '34' + tel;
       const msg = 'Estimado/a ' + item.cliente.nombre_razon_social + ', le adjuntamos la factura de honorarios correspondiente al ' + campNombre + '. Quedamos a su disposición para cualquier consulta. Un saludo, TAC Asesoría';
-      const waUrl = tel ? 'https://wa.me/' + telFinal + '?text=' + encodeURIComponent(msg) : '';
+      const waUrl = tel ? 'whatsapp://send?phone=' + telFinal + '&text=' + encodeURIComponent(msg) : '';
       html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px 12px">' +
         '<div class="flex-between" style="margin-bottom:4px">' +
           '<div>' +
