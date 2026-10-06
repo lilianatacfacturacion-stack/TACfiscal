@@ -544,6 +544,10 @@ async function mostrarForm(clienteIdOrNull=null,ocr=null){
       <div class="toggle-row"><div><div class="toggle-label">Tiene trabajadores</div><div class="toggle-sub">Sugiere Mod. 111 y 190</div></div><div class="toggle ${d.tiene_trabajadores?'on':''}" id="t-tr" onclick="this.classList.toggle('on')"></div></div>
       <div class="toggle-row"><div><div class="toggle-label">Alquileres con retención</div><div class="toggle-sub">Sugiere Mod. 115 y 180</div></div><div class="toggle ${d.tiene_alquileres?'on':''}" id="t-al" onclick="this.classList.toggle('on')"></div></div>
     </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">🎂 Fecha nacimiento</label><input class="form-input" id="f-fnac" type="date" value="${v('fecha_nacimiento')}"></div>
+      <div class="form-group"><label class="form-label">🔐 Caducidad cert. digital</label><input class="form-input" id="f-fcert" type="date" value="${v('cert_digital_caducidad')}"></div>
+    </div>
     <div class="form-group"><label class="form-label">Observaciones</label><textarea class="form-textarea" id="f-obs" placeholder="Notas internas...">${v('observaciones')}</textarea></div>
     ${ocr?`<div style="padding:10px 14px;background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:var(--radius-sm);margin-bottom:14px;font-size:11px;color:var(--green)">✅ Campos en verde = pre-rellenados por OCR. Modifica lo que necesites.</div>`:''}
     <div style="display:flex;gap:10px;margin-top:4px">
@@ -568,6 +572,9 @@ function recoger(){
     tiene_alquileres:document.getElementById('t-al').classList.contains('on'),
     observaciones:document.getElementById('f-obs').value.trim()||null,
     epigrafes_iae:document.getElementById('f-iae').value.trim()?document.getElementById('f-iae').value.split(',').map(s=>s.trim()).filter(Boolean):[],
+    fecha_nacimiento:document.getElementById('f-fnac')?.value||null,
+    cert_digital_caducidad:document.getElementById('f-fcert')?.value||null,
+    cert_digital:!!(document.getElementById('f-fcert')?.value),
   };
 }
 async function ejecutarCrear(){
@@ -3319,6 +3326,114 @@ function guardarSubvencionAnalizada(sub) {
   toast('✅ Subvención guardada');
 }
 
+// ── §13 AVISOS ──────────────────────────────────────────
+
+function renderAvisos(){
+  const el=document.getElementById('s-avisos');
+  if(!el)return;
+  const hoy=new Date();
+  const diaHoy=hoy.getDate(), mesHoy=hoy.getMonth()+1;
+  const diasMes=new Date(hoy.getFullYear(),mesHoy,0).getDate();
+  const esFindeMes=diaHoy>=diasMes-4; // últimos 5 días del mes
+
+  const act=S.clientes.filter(c=>c.activo);
+
+  // 🎂 Cumpleaños de hoy y próximos 7 días
+  const cumples=act.filter(c=>{
+    if(!c.fecha_nacimiento)return false;
+    const fn=new Date(c.fecha_nacimiento);
+    // Comprobar hoy y próximos 7 días
+    for(let i=0;i<=7;i++){
+      const d=new Date(hoy); d.setDate(hoy.getDate()+i);
+      if(fn.getDate()===d.getDate()&&(fn.getMonth()+1)===(d.getMonth()+1))return true;
+    }
+    return false;
+  }).map(c=>{
+    const fn=new Date(c.fecha_nacimiento);
+    const esCumpleHoy=fn.getDate()===diaHoy&&(fn.getMonth()+1)===mesHoy;
+    const edad=hoy.getFullYear()-fn.getFullYear();
+    return{...c,_esCumpleHoy:esCumpleHoy,_edad:edad};
+  });
+
+  // 🔐 Certificados que caducan en ≤30 días
+  const certs=act.filter(c=>{
+    if(!c.cert_digital_caducidad)return false;
+    const dias=Math.ceil((new Date(c.cert_digital_caducidad)-hoy)/86400000);
+    return dias>=0&&dias<=30;
+  }).map(c=>{
+    const dias=Math.ceil((new Date(c.cert_digital_caducidad)-hoy)/86400000);
+    return{...c,_diasCert:dias};
+  });
+
+  // 📋 Recordatorio mensual (últimos 5 días del mes)
+  const mensuales=esFindeMes?act.filter(c=>c.telefono):[];
+
+  const msgCumple=(c)=>`🎂 ¡Feliz cumpleaños, ${c.nombre_razon_social.split(' ')[0]}! 🎉\n\nDesde TAC te deseamos un maravilloso día. ¡Que se cumplan muchos más! 🥳`;
+  const msgCert=(c)=>`🔐 Hola ${c.nombre_razon_social.split(' ')[0]},\n\nTe informamos de que tu certificado digital caduca el ${new Date(c.cert_digital_caducidad).toLocaleDateString('es-ES')}.\n\nTe recomendamos renovarlo cuanto antes para evitar interrupciones en tus gestiones. Si necesitas ayuda, estamos a tu disposición.\n\nUn saludo,\nTAC Asesoría`;
+  const msgMensual=(c)=>`📋 Hola ${c.nombre_razon_social.split(' ')[0]},\n\nTe recordamos que se acerca el fin de mes. Si tienes facturas pendientes de enviarnos o necesitas alguna gestión, estaremos encantados de ayudarte.\n\nCualquier consulta, no dudes en escribirnos.\n\nUn saludo,\nTAC Asesoría`;
+
+  const btnWA=(c,msg)=>{
+    const tel=(c.telefono||'').replace(/\D/g,'');
+    const url=tel?`whatsapp://send?phone=34${tel}&text=${encodeURIComponent(msg)}`:`whatsapp://send?text=${encodeURIComponent(msg)}`;
+    return`<button class="btn btn-secondary" style="font-size:12px;padding:8px 12px;white-space:nowrap" onclick="window.open('${url}','_blank')">💬 Enviar</button>`;
+  };
+
+  const seccion=(titulo,items,renderItem)=>items.length?`
+    <div class="section-h"><span class="section-title">${titulo}</span><span style="font-size:11px;color:var(--text2)">${items.length} cliente${items.length>1?'s':''}</span></div>
+    ${items.map(renderItem).join('')}
+  `:'';
+
+  el.innerHTML=`
+    <div class="page-header"><div><div class="page-title">Avisos 🔔</div><div class="page-sub">${hoy.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})}</div></div></div>
+
+    ${!cumples.length&&!certs.length&&!mensuales.length?`
+      <div class="empty-state" style="margin-top:60px">
+        <div class="empty-icon">✅</div>
+        <div class="empty-title">Sin avisos hoy</div>
+        <div class="empty-sub">Aquí aparecerán cumpleaños, certs que caducan y recordatorios de fin de mes</div>
+      </div>
+    `:''}
+
+    ${seccion('🎂 Cumpleaños',cumples,c=>`
+      <div class="card card-p fade-up" style="margin:0 20px 8px;${c._esCumpleHoy?'border-left:3px solid #f59e0b':''}">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:14px">${c.nombre_razon_social}</div>
+            <div style="font-size:12px;color:var(--text2)">${c._esCumpleHoy?`🎉 ¡Hoy cumple ${c._edad} años!`:`Cumple en los próximos días · ${c._edad} años`}</div>
+          </div>
+          ${btnWA(c,msgCumple(c))}
+        </div>
+      </div>
+    `)}
+
+    ${seccion('🔐 Certificados digitales',certs,c=>`
+      <div class="card card-p fade-up" style="margin:0 20px 8px;${c._diasCert<=7?'border-left:3px solid var(--red)':'border-left:3px solid var(--orange)'}">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:14px">${c.nombre_razon_social}</div>
+            <div style="font-size:12px;color:${c._diasCert<=7?'var(--red)':'var(--orange)'}">Caduca en ${c._diasCert} día${c._diasCert!==1?'s':''} · ${new Date(c.cert_digital_caducidad).toLocaleDateString('es-ES')}</div>
+          </div>
+          ${btnWA(c,msgCert(c))}
+        </div>
+      </div>
+    `)}
+
+    ${esFindeMes?seccion(`📋 Recordatorio fin de mes (${mensuales.length} con teléfono)`,mensuales,c=>`
+      <div class="card card-p fade-up" style="margin:0 20px 8px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:14px">${c.nombre_razon_social}</div>
+            <div style="font-size:12px;color:var(--text2)">${c.telefono}</div>
+          </div>
+          ${btnWA(c,msgMensual(c))}
+        </div>
+      </div>
+    `):`<div style="margin:0 20px;padding:14px;background:var(--surface2);border-radius:var(--radius);font-size:13px;color:var(--text2);text-align:center">📋 El recordatorio mensual aparece los últimos 5 días del mes (a partir del día ${diasMes-4})</div>`}
+
+    <div style="height:30px"></div>
+  `;
+}
+
 // ── RENDER PRINCIPAL ──────────────────────
 
 // ── §12 INIT ──────────────────────────────────────────
@@ -3332,6 +3447,7 @@ function render(){
     case'renta-ficha':renderRentaFicha();break;
     case'renta-cuestionario':renderCuestionario();break;
     case'config':renderConfig();break;
+    case'avisos':renderAvisos();break;
   }
 }
 
