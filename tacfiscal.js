@@ -3163,13 +3163,22 @@ async function procesarFacturasSeleccionadas(files) {
     }
   }
 
+  // Guardar archivos en mapa global para acceso desde botones
+  window._tacFacturasMap = window._tacFacturasMap || {};
+  emparejados.forEach(function(item,idx){
+    window._tacFacturasMap['factura_'+idx] = item.file;
+  });
+
   // Build result HTML
   let html = '';
+  html += '<div style="padding:8px 10px;background:rgba(37,211,102,.07);border:1px solid rgba(37,211,102,.2);border-radius:var(--radius-sm);margin-bottom:12px;font-size:11px;color:var(--text2);line-height:1.5">' +
+    '💡 Al pulsar <strong>💬 WA</strong> se descargará la factura automáticamente en tu móvil y se abrirá WhatsApp. Adjunta el archivo desde Descargas recientes.' +
+  '</div>';
 
   if (emparejados.length > 0) {
     html += '<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px">✅ ' + emparejados.length + ' facturas identificadas</div>';
     html += '<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">';
-    emparejados.forEach(function(item) {
+    emparejados.forEach(function(item, idx) {
       const tel = (item.cliente.telefono||'').replace(/[^0-9]/g,'');
       const telFinal = tel.startsWith('34') ? tel : '34' + tel;
       const msg = 'Estimado/a ' + item.cliente.nombre_razon_social + ', le adjuntamos la factura de honorarios correspondiente al ' + campNombre + '. Quedamos a su disposición para cualquier consulta. Un saludo, TAC Asesoría';
@@ -3181,7 +3190,7 @@ async function procesarFacturasSeleccionadas(files) {
             '<div style="font-size:10px;color:var(--text2)">' + item.file.name + ' · por ' + item.metodo + '</div>' +
           '</div>' +
           (waUrl ?
-            '<a href="' + waUrl + '" target="_blank" style="font-size:11px;background:rgba(37,211,102,.12);color:#25d366;border:1px solid rgba(37,211,102,.3);border-radius:6px;padding:4px 10px;text-decoration:none;white-space:nowrap;flex-shrink:0">💬 WA</a>' :
+            '<button onclick="enviarFacturaWA(\'factura_' + idx + '\',\'' + waUrl + '\')" style="font-size:11px;background:rgba(37,211,102,.12);color:#25d366;border:1px solid rgba(37,211,102,.3);border-radius:6px;padding:4px 10px;cursor:pointer;white-space:nowrap;flex-shrink:0">💬 WA</button>' :
             '<span style="font-size:10px;color:var(--red)">Sin teléfono</span>'
           ) +
         '</div>' +
@@ -3207,6 +3216,22 @@ async function procesarFacturasSeleccionadas(files) {
   resultado.innerHTML = html;
 }
 
+
+// ── ENVIAR FACTURA + WHATSAPP ─────────────────────────────────
+function enviarFacturaWA(key, waUrl) {
+  const file = window._tacFacturasMap && window._tacFacturasMap[key];
+  if (file) {
+    // 1. Descargar el archivo al dispositivo
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(file);
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); document.body.removeChild(a); }, 1000);
+  }
+  // 2. Abrir WhatsApp (tras breve pausa para que empiece la descarga)
+  setTimeout(() => { window.open(waUrl, '_blank'); }, 600);
+}
 
 // ── GESTOR DE SUBVENCIONES ────────────────────────────────────
 
