@@ -39,7 +39,43 @@ function sugerirModelos(c){
   if(tr){s.add('111');s.add('190');}
   if(al){s.add('115');s.add('180');}
   if(iva!=='exento'&&iva!=='no_sujeto')s.add('390');
+  // Mod. 349 (declaración recapitulativa de operaciones intracomunitarias): requiere estar dado de alta en el ROI
+  if(c.operaciones_intracomunitarias)s.add('349');
   return[...s];
+}
+
+// ── §4b ROI (Registro de Operadores Intracomunitarios) ──────────
+const ROI_BUCKET='documentos-clientes';
+function roiCompleto(c){return !!(c&&c.operaciones_intracomunitarias&&c.roi_alta_fecha&&c.roi_alta_documento);}
+function toggleROI(el){
+  el.classList.toggle('on');
+  const b=document.getElementById('roi-bloque');
+  if(b)b.style.display=el.classList.contains('on')?'block':'none';
+}
+// Sube el documento de alta en el ROI a Supabase Storage y devuelve la ruta guardada (o null si no hay archivo nuevo)
+async function subirDocROI(nif){
+  const inp=document.getElementById('f-roi-doc');
+  const file=inp&&inp.files&&inp.files[0];
+  if(!file)return null;
+  const ext=(file.name.split('.').pop()||'pdf').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const ruta=`${(nif||'sin_nif').replace(/[^A-Za-z0-9]/g,'')}/roi_alta_${Date.now()}.${ext}`;
+  const{error}=await sb.storage.from(ROI_BUCKET).upload(ruta,file,{upsert:false,contentType:file.type||'application/octet-stream'});
+  if(error)throw error;
+  return ruta;
+}
+async function verDocROI(id){
+  const c=S.clientes.find(x=>x.id===id)||S.clienteActual;
+  if(!c?.roi_alta_documento){toast('Sin documento de alta ROI','error');return;}
+  const{data,error}=await sb.storage.from(ROI_BUCKET).createSignedUrl(c.roi_alta_documento,300);
+  if(error||!data?.signedUrl){toast('No se pudo abrir el documento','error');return;}
+  window.open(data.signedUrl,'_blank');
+}
+// Si el cliente tiene operaciones intracomunitarias, asegura que el Mod. 349 esté entre sus obligaciones
+async function asegurar349(clienteId,c){
+  if(!c.operaciones_intracomunitarias)return;
+  const m=S.modelos.find(x=>x.codigo==='349');
+  if(!m){toast('El Mod. 349 no existe en la tabla de modelos (ejecuta el SQL de alta)','error');return;}
+  await sb.from('obligaciones_cliente').upsert([{cliente_id:clienteId,modelo_id:m.id,origen:'sugerido_auto',activo:true}],{onConflict:'cliente_id,modelo_id'});
 }
 function calcularSemaforo(obs,pres){
   const act=obs.filter(o=>o.activo&&o.origen!=='excluido_manual');
@@ -249,6 +285,8 @@ Responde ÚNICAMENTE con un JSON válido, sin markdown ni texto adicional:
   "periodicidad": "trimestral | mensual",
   "tiene_trabajadores": false,
   "tiene_alquileres": false,
+  "alta_roi": false,
+  "fecha_alta_roi": "YYYY-MM-DD o null",
   "epigrafes_iae": ["código - descripción"],
   "observaciones": "datos adicionales relevantes del documento",
   "confianza": "alta | media | baja",
@@ -260,6 +298,7 @@ Criterios:
 - regimen_fiscal: busca casillas de alta de actividades. Módulos/estimación objetiva = "modulos". Estimación directa = "estimacion_directa". Régimen general IS = "general".
 - situacion_iva: dado de alta en IVA sin exención = "normal". Exención art.20 LIVA = "exento". No realiza actividad sujeta = "no_sujeto".
 - epigrafes_iae: extrae todos los que aparezcan.
+- alta_roi: true solo si el documento indica que está dado de alta en el Registro de Operadores Intracomunitarios (ROI); fecha_alta_roi es la fecha de ese alta si consta, si no null.
 - Si un campo no está en el documento usa null, nunca inventes datos.`;
 
     const body={
@@ -318,6 +357,7 @@ function mostrarResultadoOCR(d){
     ['Periodicidad',d.periodicidad],
     ['Trabajadores',d.tiene_trabajadores?'Sí':'No'],
     ['Alquileres',d.tiene_alquileres?'Sí':'No'],
+    ['Alta ROI',d.alta_roi?('Sí'+(d.fecha_alta_roi?' · '+d.fecha_alta_roi:'')):null],
     ['IAE',d.epigrafes_iae?.join(' · ')||null],
   ].filter(([,v])=>v!=null&&v!==undefined&&v!=='');
 
@@ -484,6 +524,7 @@ async function renderFicha(){
     <div class="tags-row">
       ${c.tiene_trabajadores?'<span class="tag on">Con trabajadores</span>':'<span class="tag off">Sin trabajadores</span>'}
       ${c.tiene_alquileres?'<span class="tag on">Alquiler c/ retención</span>':''}
+      ${c.operaciones_intracomunitarias?(roiCompleto(c)?`<span class="tag on">Intracomunitario · ROI ${new Date(c.roi_alta_fecha).toLocaleDateString('es-ES')}</span><span class="tag" style="cursor:pointer" onclick="verDocROI('${c.id}')">📎 Alta ROI</span>`:'<span class="tag" style="background:rgba(239,68,68,.15);color:var(--red)">⚠️ Intracomunitario: falta alta ROI (fecha o documento)</span>'):''}
       <span class="tag">${LI[c.situacion_iva]||c.situacion_iva}</span>
       <span class="tag">${c.periodicidad==='trimestral'?'Trimestral':'Mensual'}</span>
       ${c.epigrafes_iae?.length?`<span class="tag">IAE: ${c.epigrafes_iae[0]}</span>`:''}
@@ -518,6 +559,8 @@ async function mostrarForm(clienteIdOrNull=null,ocr=null){
   const v=f=>d[f]??'';
   const sk=(f,op)=>d[f]===op?'selected':'';
   const esEdit=!!c;
+  const intra=!!(d.operaciones_intracomunitarias??d.alta_roi);
+  const roiFecha=d.roi_alta_fecha??d.fecha_alta_roi??'';
 
   showModal(`
     <div class="modal-title">${esEdit?'✏️ Editar cliente':ocr?'📋 Revisar datos del 036':'➕ Nuevo cliente'}</div>
@@ -543,6 +586,12 @@ async function mostrarForm(clienteIdOrNull=null,ocr=null){
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px">
       <div class="toggle-row"><div><div class="toggle-label">Tiene trabajadores</div><div class="toggle-sub">Sugiere Mod. 111 y 190</div></div><div class="toggle ${d.tiene_trabajadores?'on':''}" id="t-tr" onclick="this.classList.toggle('on')"></div></div>
       <div class="toggle-row"><div><div class="toggle-label">Alquileres con retención</div><div class="toggle-sub">Sugiere Mod. 115 y 180</div></div><div class="toggle ${d.tiene_alquileres?'on':''}" id="t-al" onclick="this.classList.toggle('on')"></div></div>
+      <div class="toggle-row"><div><div class="toggle-label">Operaciones intracomunitarias</div><div class="toggle-sub">Sugiere Mod. 349 · exige alta en el ROI</div></div><div class="toggle ${intra?'on':''}" id="t-intra" onclick="toggleROI(this)"></div></div>
+    </div>
+    <div id="roi-bloque" style="display:${intra?'block':'none'};background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px">
+      <div style="font-size:12px;font-weight:600;margin-bottom:8px">📑 Alta en el ROI (Registro de Operadores Intracomunitarios)</div>
+      <div class="form-group"><label class="form-label">Fecha de alta en el ROI *</label><input class="form-input" id="f-roi-fecha" type="date" value="${roiFecha}"></div>
+      <div class="form-group"><label class="form-label">Documento de alta (PDF o imagen) *</label><input class="form-input" id="f-roi-doc" type="file" accept="application/pdf,image/*">${d.roi_alta_documento?`<div style="font-size:11px;color:var(--green);margin-top:6px">✅ Ya hay un documento guardado${esEdit?` · <a href="#" style="color:var(--accent2)" onclick="verDocROI('${c.id}');return false">verlo</a>`:''}. Sube otro solo si quieres sustituirlo.</div>`:''}</div>
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">🎂 Fecha nacimiento</label><input class="form-input" id="f-fnac" type="date" value="${v('fecha_nacimiento')}"></div>
@@ -570,6 +619,8 @@ function recoger(){
     periodicidad:document.getElementById('f-per').value,
     tiene_trabajadores:document.getElementById('t-tr').classList.contains('on'),
     tiene_alquileres:document.getElementById('t-al').classList.contains('on'),
+    operaciones_intracomunitarias:document.getElementById('t-intra')?.classList.contains('on')||false,
+    roi_alta_fecha:(document.getElementById('t-intra')?.classList.contains('on')&&document.getElementById('f-roi-fecha')?.value)||null,
     observaciones:document.getElementById('f-obs').value.trim()||null,
     epigrafes_iae:document.getElementById('f-iae').value.trim()?document.getElementById('f-iae').value.split(',').map(s=>s.trim()).filter(Boolean):[],
     fecha_nacimiento:document.getElementById('f-fnac')?.value||null,
@@ -580,14 +631,32 @@ function recoger(){
 async function ejecutarCrear(){
   const d=recoger();
   if(!d.nombre_razon_social||!d.nif_cif){toast('Nombre y NIF son obligatorios','error');return;}
-  try{await guardarCliente({...d,activo:true,semaforo:'amarillo'});hideModal();toast(`✅ ${d.nombre_razon_social} creado`);await cargarDatos();}
-  catch(e){toast(e.message?.includes('unique')?'Ya existe un cliente con ese NIF':'Error guardando cliente','error');}
+  if(d.operaciones_intracomunitarias&&(!d.roi_alta_fecha||!document.getElementById('f-roi-doc')?.files?.length)){
+    toast('Operaciones intracomunitarias: indica la fecha de alta en el ROI y adjunta el documento de alta','error');return;
+  }
+  try{
+    if(d.operaciones_intracomunitarias)d.roi_alta_documento=await subirDocROI(d.nif_cif);
+    const nuevo=await guardarCliente({...d,activo:true,semaforo:'amarillo'});
+    if(nuevo)await asegurar349(nuevo.id,d);
+    hideModal();toast(`✅ ${d.nombre_razon_social} creado`);await cargarDatos();
+  }
+  catch(e){console.error(e);toast(e.message?.includes('unique')?'Ya existe un cliente con ese NIF':'Error guardando cliente (¿bucket ROI o columnas sin crear? ver SQL)','error');}
 }
 async function ejecutarEdit(id){
   const d=recoger();
   if(!d.nombre_razon_social||!d.nif_cif){toast('Nombre y NIF son obligatorios','error');return;}
-  try{await updateCliente(id,d);hideModal();toast('✅ Cliente actualizado');await cargarDatos();await renderFicha();}
-  catch(e){toast('Error actualizando cliente','error');}
+  const actual=S.clientes.find(x=>x.id===id);
+  const archivoNuevo=!!document.getElementById('f-roi-doc')?.files?.length;
+  if(d.operaciones_intracomunitarias&&(!d.roi_alta_fecha||(!archivoNuevo&&!actual?.roi_alta_documento))){
+    toast('Operaciones intracomunitarias: indica la fecha de alta en el ROI y adjunta el documento de alta','error');return;
+  }
+  try{
+    if(d.operaciones_intracomunitarias&&archivoNuevo)d.roi_alta_documento=await subirDocROI(d.nif_cif);
+    await updateCliente(id,d);
+    await asegurar349(id,d);
+    hideModal();toast('✅ Cliente actualizado');await cargarDatos();await renderFicha();
+  }
+  catch(e){console.error(e);toast('Error actualizando cliente (¿bucket ROI o columnas sin crear? ver SQL)','error');}
 }
 async function confirmarBorrar(id){
   const c=S.clientes.find(x=>x.id===id);
